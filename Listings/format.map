@@ -1,8 +1,8 @@
 
 - NASM Map file ---------------------------------------------------------------
 
-Source file:  ./Utils/FORMAT/format.asm
-Output file:  ./Utils/FORMAT/Binaries/FORMAT.COM
+Source file:  format.asm
+Output file:  ./Binaries/FORMAT.COM
 
 -- Program origin -------------------------------------------------------------
 
@@ -221,19 +221,21 @@ Value     Name
 00000012  psp.oldInt43h
 0000001A  psp.oldInt44h
 00000022  psp.parentPtr
+0000002A  psp.externalJFTPtr
 0000002A  psp.jobFileTbl
 0000003E  psp.envPtr
 00000046  psp.rspPtr
-0000004E  psp.xtraHdlSz
+0000004E  psp.jftSize
 00000050  psp.unixEntry
 00000053  psp.prevPSP
-0000005B  psp.xtraHdlNum
+0000005C  psp.cmdLineArgPtr
 0000005C  psp.fcb1
 0000006C  psp.fcb2
 00000080  psp.dta
 00000080  psp.parmList
 00000081  psp.progTail
 00000100  psp_size
+00000014  dfltJFTsize
 00000000  clkStruc
 00000000  clkStruc.dateWord
 00000002  clkStruc.minutes

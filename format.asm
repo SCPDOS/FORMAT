@@ -31,12 +31,12 @@
 ;Format also doesnt depend on any old BPB's or anything like so.
 ;Any old FAT (or other FS) data structures are considered nukable.
 
-[map all ./Utils/FORMAT/Listings/format.map]
+[map all ./Listings/format.map]
 [DEFAULT REL]
 BITS 64
-%include "./Source/Include/dosMacro.mac"
-%include "./Source/Include/dosStruc.inc"
-%include "./Source/Include/fatStruc.inc"
+%include "./Include/dosMacro.mac"
+%include "./Include/dosStruc.inc"
+%include "./Include/fatStruc.inc"
 
 struc genioctlGetParamsTable
     .size           resb 1
@@ -45,9 +45,9 @@ struc genioctlGetParamsTable
     .numSectors     resb 8
 endstruc
 
-%include "./Utils/FORMAT/Source/fmtMain.asm"
-%include "./Utils/FORMAT/Data/fmtData.asm"
-%include "./Utils/FORMAT/Data/fmtMsg.asm"
+%include "./Source/fmtMain.asm"
+%include "./Data/fmtData.asm"
+%include "./Data/fmtMsg.asm"
 bootloader:
 ;Symbol pointing to the bootloader
 ;When building the COM for format, we append the loader binary here

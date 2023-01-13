@@ -1,0 +1,97 @@
+
+- NASM Map file ---------------------------------------------------------------
+
+Source file:  ./Source/loader.asm
+Output file:  ./Binaries/loader.bin
+
+-- Program origin -------------------------------------------------------------
+
+00000600
+
+-- Sections (summary) ---------------------------------------------------------
+
+Vstart            Start             Stop              Length    Class     Name
+             600               600               800  00000200  progbits  .text
+             502               502               516  00000014  nobits    .bss
+
+-- Sections (detailed) --------------------------------------------------------
+
+---- Section .text ------------------------------------------------------------
+
+class:     progbits
+length:                 200
+start:                  600
+align:     not defined
+follows:   not defined
+vstart:                 600
+valign:    not defined
+vfollows:  not defined
+
+---- Section .bss -------------------------------------------------------------
+
+class:     nobits
+length:                  14
+start:                  502
+align:                    4
+follows:   not defined
+vstart:                 502
+valign:                   4
+vfollows:  not defined
+
+-- Symbols --------------------------------------------------------------------
+
+---- No Section ---------------------------------------------------------------
+
+Value     Name
+00000600  relocBase
+00000800  loadAddress
+
+
+---- Section .text ------------------------------------------------------------
+
+Real              Virtual           Name
+             603               603  osname
+             60B               60B  bypsec
+             60D               60D  secpcl
+             60E               60E  ressec
+             610               610  numFAT
+             611               611  nortdr
+             613               613  nosect
+             615               615  medesc
+             616               616  FATsec
+             618               618  sectrc
+             61A               61A  numhed
+             61C               61C  numhid
+             620               620  nsecfs
+             624               624  ldrvnu
+             625               625  res1
+             626               626  extsig
+             627               627  sernum
+             62B               62B  vollbl
+             636               636  fstype
+             63E               63E  startSector
+             646               646  numberOfSectors
+             648               648  start
+             666               666  s1
+             685               685  s1.s2
+             6D0               6D0  readFloppy
+             6DE               6DE  readDisk
+             713               713  launchSCP
+             71B               71B  diskError
+             722               722  fail
+             725               725  fail.write
+             733               733  fail.cont
+             739               739  fail.msg
+             7F1               7F1  SysInitTable
+             7F1               7F1  SysInitTable.lengthb
+             7F2               7F2  SysInitTable.numSecb
+             7F3               7F3  SysInitTable.resWord
+             7F5               7F5  SysInitTable.FileLBA
+             7FD               7FD  bootOnFlag
+
+---- Section .bss -------------------------------------------------------------
+
+Real              Virtual           Name
+             502               502  drvnum
+             506               506  pktptr
+
