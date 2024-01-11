@@ -218,9 +218,9 @@ Value     Name
 00000000  psp
 00000000  psp.return
 00000002  psp.allocSize
-0000000A  psp.oldInt42h
-00000012  psp.oldInt43h
-0000001A  psp.oldInt44h
+0000000A  psp.oldInt22h
+00000012  psp.oldInt23h
+0000001A  psp.oldInt24h
 00000022  psp.parentPtr
 0000002A  psp.externalJFTPtr
 0000002A  psp.jobFileTbl

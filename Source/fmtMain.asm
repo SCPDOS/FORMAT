@@ -10,15 +10,15 @@ startFormat:
 .cVersion:
     push rax
     mov ah, 30h
-    int 41h
+    int 21h
     cmp al, byte [.vNum] ;Version 1
     jbe .okVersion
     pop rax
     lea rdx, badVerStr
 .printExit:
     mov ah, 09h
-    int 41h
-    int 40h ;Exit to caller or DOS to print bad command interpreter line
+    int 21h
+    int 20h ;Exit to caller or DOS to print bad command interpreter line
 .okVersion:
 ;Check the passed argument is ok (flag in al)
     pop rax
@@ -31,8 +31,8 @@ startFormat:
 ; Here we now hook ^C so that if the user calls ^C we restore DOS state
 ; (i.e. default drive and reactivate the drive if it is deactivated)
     lea rdx, breakRoutine
-    mov eax, 2543h
-    int 41h
+    mov eax, 2523h
+    int 21h
 ;Now fetch the drive we are working on
     mov dl, byte [r8 + psp.fcb1] ;Get the fcb 1 based drvNum
     dec dl  ;Turn it into a 0 based number
@@ -41,7 +41,7 @@ startFormat:
 .driveSelected:
 ;Now check that drive we want to fmt is not current drv
     mov eax, 1900h  ;Get current drive 
-    int 41h
+    int 21h
     cmp al, byte [fmtDrive]
     jne .notCurrentDrive
     lea rdx, currentFmt
@@ -50,7 +50,7 @@ startFormat:
 ;Now we check that the associate drive is not a network, subst or join.
 ; If it is, fail. Else, we deactivate
     mov ah, 52h
-    int 41h ;Get in rbx a ptr to list of lists
+    int 21h ;Get in rbx a ptr to list of lists
     add rbx, 22h    ;Point rbx to bufHeadPtr
     mov rbp, qword [rbx]    ;Get the ptr to the buffer header array
     mov qword [dosBuffPtr], rbp
@@ -70,7 +70,7 @@ startFormat:
     movzx ebx, byte [fmtDrive]    ;0 based number
     inc ebx  ;Turn it into a 1 based number
     mov eax, 4408h  ;IOCTL, Get if removable or not
-    int 41h
+    int 21h
     jnc .gotRemStatus
 .badRedir:
     lea rdx, badRedir
@@ -83,7 +83,7 @@ startFormat:
     mov cl, 80h | 60h   ;Use undocumented LBA get parameters
     mov eax, 440Dh  ;Generic IOCTL 
     lea rdx, reqTable   ;Point to the table to fill in, bl has drive number 
-    int 41h
+    int 21h
     jc badExitGenericString
     mov rax, qword [rdx + genioctlGetParamsTable.sectorSize]    ;Get sector size
     mov word [sectorSize], ax
@@ -97,7 +97,7 @@ startFormat:
     ;Read VBR for volume, request a buffer of 1000h bytes (max sector size 4k)
     mov ebx, 100h   ;Request 100 paragraphs
     mov eax, 4800h
-    int 41h
+    int 21h
     jc badExitGenericString
     mov qword [bufferArea], rax ;Use this as the buffer
     mov ecx, 1
@@ -121,7 +121,7 @@ startFormat:
     push r8
     mov r8, qword [bufferArea]
     mov eax, 4900h  ;Free the block now
-    int 41h
+    int 21h
     pop r8
     pop rax
     mov qword [bufferArea], 0   ;Clear the ptr
@@ -244,7 +244,7 @@ selectFATtype:
     movzx ebx, word [sectorSize] ;Get the sector size
     shr ebx, 4  ;Divide by 4 to get number of paragraphs
     mov eax, 4800h  ;Allocate
-    int 41h
+    int 21h
     jc badExitGenericString
     mov qword [bufferArea], rax ;Use this as the buffer
     cld ;Ensure string ops are done the right way
@@ -290,7 +290,7 @@ createDPB:
     mov rbp, qword [rbp + cds.qDPBPtr]  ;Get the CDS's DPB ptr
     mov rsi, qword [bpbPointer]
     mov eax, 5300h  ;Now we update the DPB with this new information
-    int 41h 
+    int 21h 
 createFAT:
     ;Now we create the FAT sectors.
     ;We write both copies one sector at a time interleaving them.
@@ -430,9 +430,9 @@ exitFormat:
     call freeMemoryBlock
     lea rdx, okFormat
     mov eax, 0900h
-    int 41h
+    int 21h
     mov eax, 4C00h  ;Return with 0 as error code
-    int 41h
+    int 21h
 
 
 ;Utility functions below
@@ -441,7 +441,7 @@ freeMemoryBlock:
     test r8, r8
     retz
     mov eax, 4900h
-    int 41h
+    int 21h
     return
 
 freeAllDriveBuffers:
@@ -490,7 +490,7 @@ getVolumeID:
 ;Uses the time to set a volume ID
 ;Output: eax = VolumeID
     mov eax, 2C00h     ;Get Time in cx:dx
-    int 41h
+    int 21h
     movzx ebx, dx
     movzx eax, cx
     shl ebx, 10h
@@ -561,7 +561,7 @@ readSector:
 ;rdx = Start LBA to read from
     mov al, byte [fmtDrive]     ; Always read from fmtDrive
     mov rbx, qword [bufferArea] ; Memory Buffer address to read from
-    int 45h
+    int 25h
     pop rax ;Pop old flags into rax
     return
 writeSector:
@@ -572,7 +572,7 @@ writeSector:
 ;rdx = Start LBA to write to
     mov al, byte [fmtDrive]     ; Always write to fmtDrive
     mov rbx, qword [bufferArea] ; Memory Buffer address to read from
-    int 46h
+    int 26h
     pop rax ;Pop old flags into rax
     return
 badExitGenericString:
@@ -586,22 +586,22 @@ badExit:
     test rdx, rdx
     jz .noPrint
     mov ah, 09h
-    int 41h
+    int 21h
 .noPrint:
     call freeMemoryBlock    ;Free the memory block if it needs freeing
     mov eax, 4CFFh  ;Return with -1 as error code
-    int 41h
+    int 21h
 
 dosCrit1Enter:
     push rax 
     mov eax, 8001h
-    int 4ah
+    int 2ah
     pop rax
     return
 dosCrit1Exit:
     push rax 
     mov eax, 8101h
-    int 4ah
+    int 2ah
     pop rax
     return
 
@@ -610,9 +610,9 @@ breakRoutine:
 ;Prompts the user for what they want to do.
     lea rdx, cancel
     mov ah, 09h
-    int 41h
+    int 21h
     mov ah, 01h ;Get a char
-    int 41h
+    int 21h
     cmp al, "y"
     je short .breakReturnExit
     cmp al, "Y"

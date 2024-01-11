@@ -25,8 +25,8 @@
 ; result in an unusable volume that will need reformatting" message.
 ;If they respond with Y, we re-enable the CDS and return to DOS to exit.
 
-;Note Format does not format the full medium and uses Int 45h to read 
-; sectors from the old format and Int 46h to write new sectors to the 
+;Note Format does not format the full medium and uses Int 25h to read 
+; sectors from the old format and Int 26h to write new sectors to the 
 ; volume. 
 ;Format also doesnt depend on any old BPB's or anything like so.
 ;Any old FAT (or other FS) data structures are considered nukable.
