@@ -403,6 +403,21 @@ rootDirectory:
     jc badExitGenericString
     dec esi
     jnz .fat32Loop
+;Before we write hte FSinfo sector, we compute the free cluster count
+    movzx ecx, byte [genericBPB32 + bpb32.numFATs]
+    mov eax, dword [genericBPB32 + bpb32.FATsz32]
+    mul ecx ;Get the number of sectors in the FATs
+    movzx ecx, word [genericBPB32 + bpb32.revdSecCnt]    
+    add eax, ecx    ;Reserved + total fat sectors in eax
+    mov ecx, dword [genericBPB32 + bpb32.totSec32]
+    sub ecx, eax    ;Get the number of sectors in the data area
+    mov eax, ecx    ;And save it into eax
+    movzx ecx, byte [genericBPB32 + bpb32.secPerClus]   ;Get sector per cluster cnt
+    xor edx, edx
+    div ecx         ;Divide data area sectors/sectors per cluster
+    ;eax has clusters in the data area
+    dec eax         ;Drop one cluster for the allocated root dir cluster
+    mov edx, eax    ;Save this value in edx
 ;Now we are done with the common bit, last thing for FAT32, create the
 ; FSInfo (with no useful info, for now as DOS will not sync this)
     mov rbx, qword [bufferArea]
@@ -412,8 +427,8 @@ rootDirectory:
     rep stosb   ;Clean the Sector buffer
     mov dword [rbx], 41615252h  ;Initial signature
     mov dword [rbx + 484], 61417272h    ;Intermediate signature
-    mov dword [rbx + 488], -1
-    mov dword [rbx + 492], -1
+    mov dword [rbx + 488], edx ;Free cluster count
+    mov dword [rbx + 492], 3   ;First free cluster, after root dir!
     mov dword [rbx + 508], 0AA550000h
     mov ecx, 1
     mov edx, 1
