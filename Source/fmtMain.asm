@@ -382,17 +382,40 @@ rootDirectory:
     jnz .fatLoop
     jmp exitFormat
 .fat32:
-    ;Now we have to allocate one cluster to the root directory.
-    ;Allocate cluster 2, as this is a quick and dirty program
-    ; Later come back and make this proper with bad cluster tags etc
-    ;We do this by writing our zero sectors to the cluster
-    ;edx should have the sector number for the first sector of cluster 2 at 
-    ; this point.
-    mov rbx, qword [bpbPointer] ;Get the bpbPointer
-    movzx esi, byte [rbx + bpb32.secPerClus]
-    mov ecx, 1  ;Write one sector at a time
-.fat32Loop:
-    inc edx ;Go to next sector now
+;Now we need to allocate a cluster to the root directory. We need to 
+; then sanitise the cluster completely.
+;Step 1) Get back the FAT sector.
+;Step 2) Allocate Cluster 2
+;Step 3) Write back.
+;Step 4) Write back copy.
+;Step 5) Loop through sectors of the cluster nulling the sector out
+    breakpoint
+    mov ecx, 1
+    movzx edx, word [genericBPB32 + bpb32.revdSecCnt]
+    push rcx
+    push rdx
+    call readSector
+    pop rdx
+    pop rcx
+    mov rbx, qword [bufferArea]
+    mov dword [rbx + 8], -1    ;Allocate this cluster
+    push rcx
+    push rdx
+    call writeSector
+    pop rdx
+    pop rcx
+    add edx, dword [genericBPB32 + bpb32.FATsz32]   ;Go to backup FAT sector
+    push rdx
+    call writeSector
+    pop rdx
+    add edx, dword [genericBPB32 + bpb32.FATsz32]   ;Go to first data sector
+    mov rdi, qword [bufferArea]
+    xor eax, eax
+    movzx ecx, word [genericBPB32 + bpb32.bytsPerSec]
+    rep stosb   ;Clean the buffer for writeback
+    movzx esi, byte [genericBPB32 + bpb32.secPerClus]
+    mov ecx, 1
+.fat32RootClean:
     push rcx
     push rdx
     push rsi
@@ -400,10 +423,10 @@ rootDirectory:
     pop rsi
     pop rdx
     pop rcx
-    jc badExitGenericString
-    dec esi
-    jnz .fat32Loop
-;Before we write hte FSinfo sector, we compute the free cluster count
+    inc edx ;Next consecutive sector
+    dec esi ;Decrement count
+    jnz .fat32RootClean
+;Before we write the FSinfo sector, we compute the free cluster count
     movzx ecx, byte [genericBPB32 + bpb32.numFATs]
     mov eax, dword [genericBPB32 + bpb32.FATsz32]
     mul ecx ;Get the number of sectors in the FATs
@@ -412,8 +435,8 @@ rootDirectory:
     mov ecx, dword [genericBPB32 + bpb32.totSec32]
     sub ecx, eax    ;Get the number of sectors in the data area
     mov eax, ecx    ;And save it into eax
-    movzx ecx, byte [genericBPB32 + bpb32.secPerClus]   ;Get sector per cluster cnt
-    xor edx, edx
+    movzx ecx, byte [genericBPB32 + bpb32.secPerClus]   
+    xor edx, edx    ;Get sector per cluster cnt
     div ecx         ;Divide data area sectors/sectors per cluster
     ;eax has clusters in the data area
     dec eax         ;Drop one cluster for the allocated root dir cluster
@@ -495,8 +518,8 @@ writeFATStartSig:
     jmp short .exit
 .fat32:
     mov dword [rdi], eax
-    mov rax, -1
-    mov qword [rdi + 4], rax    ;Write a qword to allocate cluster 2 too
+    mov eax, -1
+    mov dword [rdi + 4], eax
 .exit:
     pop rbx
     pop rax

@@ -22,6 +22,7 @@ hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
 loaderPtr   dq 0        ;Point to the bootloader to use
 loaderBytes dw 0        ;Number of bytes to copy
 
+f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
 ;Tables
 ;Each row is 5 bytes, {DWORD, BYTE} with DWORD = diskSize, BYTE=secPerClusVal
 ;This table assumes a 512 byte sector (fair assumption) but we do a byte size
