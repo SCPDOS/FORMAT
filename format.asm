@@ -34,9 +34,9 @@
 [map all ./Listings/format.map]
 [DEFAULT REL]
 BITS 64
-%include "./Include/dosMacro.mac"
-%include "./Include/dosStruc.inc"
-%include "./Include/fatStruc.inc"
+%include "./inc/dosMacro.mac"
+%include "./inc/dosStruc.inc"
+%include "./inc/fatStruc.inc"
 
 struc genioctlGetParamsTable
     .size           resb 1
@@ -45,9 +45,9 @@ struc genioctlGetParamsTable
     .numSectors     resb 8
 endstruc
 
-%include "./Source/fmtMain.asm"
-%include "./Data/fmtData.asm"
-%include "./Data/fmtMsg.asm"
+%include "./src/fmtMain.asm"
+%include "./dat/fmtData.asm"
+%include "./dat/fmtMsg.asm"
 bootloader:
 ;Symbol pointing to the bootloader
 ;When building the COM for format, we append the loader binary here

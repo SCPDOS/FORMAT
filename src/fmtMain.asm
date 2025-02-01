@@ -271,9 +271,6 @@ selectFATtype:
     mov byte [inCrit], -1   ;Entering a DOS level 1 critical section
     push rcx
     push rdx
-    ;DOS FREES ALL BUFFERS FOR THE DPB WE JUST BUILT AS WE HAVE THE 
-    ; FRESH DPB FLAG SET!
-    ;call freeAllDriveBuffers    ;Now we begin formatting, free all buffers
     call writeSector
     pop rdx
     pop rcx
@@ -483,25 +480,6 @@ freeMemoryBlock:
     mov eax, 4900h
     int 21h
     return
-
-;freeAllDriveBuffers:
-;Frees all buffers that belong to the drive being formatted
-;Called once in the critical section
-;    push rax
-;    push rdi
-;    mov al, byte [fmtDrive]
-;    mov rdi, qword [dosBuffPtr]
-;.mainLp:
-;    cmp byte [rdi + bufferHdr.driveNumber], al
-;    jne .gotoNextBuffer
-;    mov word [rdi + bufferHdr.driveNumber], 00FFh   ;Clears the flags too
-;.gotoNextBuffer:
-;    mov rdi, qword [rdi + bufferHdr.nextBufPtr]
-;    cmp rdi, -1
-;    jne .mainLp
-;    pop rdi
-;    pop rax
-;    return
 
 writeFATStartSig:
 ;Writes the first two cluster blocks with the necessary signature

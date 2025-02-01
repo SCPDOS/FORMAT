@@ -1,21 +1,21 @@
 #!/bin/sh
 
 format:
-	nasm format.asm -o ./Binaries/FORMAT.COM -f bin -l ./Listings/format.lst -O0v
+	nasm format.asm -o ./bin/FORMAT.COM -f bin -l ./lst/format.lst -O0v
 # Now stick the generic bootloader to the end of the file
-	cat ./Binaries/loader.bin >> ./Binaries/FORMAT.COM
-	cat ./Binaries/loader32.bin >> ./Binaries/FORMAT.COM
+	cat ./bin/loader.bin >> ./bin/FORMAT.COM
+	cat ./bin/loader32.bin >> ./bin/FORMAT.COM
 
 loader:
-	nasm ./Source/loader.asm -o ./Binaries/loader.bin -f bin -l ./Listings/loader.lst -O0v
+	nasm ./src/loader.asm -o ./bin/loader.bin -f bin -l ./lst/loader.lst -O0v
 
 loader32:
-	nasm ./Source/loader32.asm -o ./Binaries/loader32.bin -f bin -l ./Listings/loader32.lst -O0v
+	nasm ./src/loader32.asm -o ./bin/loader32.bin -f bin -l ./lst/loader32.lst -O0v
 
 all:
-	nasm format.asm -o ./Binaries/FORMAT.COM -f bin -l ./Listings/format.lst -O0v
-	nasm ./Source/loader.asm -o ./Binaries/loader.bin -f bin -l ./Listings/loader.lst -O0v
-	nasm ./Source/loader32.asm -o ./Binaries/loader32.bin -f bin -l ./Listings/loader32.lst -O0v	
+	nasm format.asm -o ./bin/FORMAT.COM -f bin -l ./lst/format.lst -O0v
+	nasm ./src/loader.asm -o ./bin/loader.bin -f bin -l ./lst/loader.lst -O0v
+	nasm ./src/loader32.asm -o ./bin/loader32.bin -f bin -l ./lst/loader32.lst -O0v	
 # Now stick the generic bootloader to the end of the file
-	cat ./Binaries/loader.bin >> ./Binaries/FORMAT.COM
-	cat ./Binaries/loader32.bin >> ./Binaries/FORMAT.COM
+	cat ./bin/loader.bin >> ./bin/FORMAT.COM
+	cat ./bin/loader32.bin >> ./bin/FORMAT.COM

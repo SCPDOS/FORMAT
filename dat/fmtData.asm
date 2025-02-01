@@ -5,8 +5,8 @@ reqTable    db genioctlGetParamsTable_size dup (0)
 fmtDrive    db -1       ;Drive we are operating on (0 based)
 inCrit      db 0        ;If not 0, in a critical section, must exit
 cdsPtr      dq 0        ;CDS ptr here
-dosBuffPtr  dq 0        ;Ptr to the DOS buffer chain
 bufferArea  dq 0        ;Ptr to the buffer area
+breakByte   db 0        ;Break state to reset when returning (We set break on)
 ;Format Data here
 remDev      db 0        ;0 = Removable, -1 = Fixed
 fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
