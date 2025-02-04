@@ -31,18 +31,22 @@
 ;Format also doesnt depend on any old BPB's or anything like so.
 ;Any old FAT (or other FS) data structures are considered nukable.
 
-[map all ./Listings/format.map]
+[map all ./lst/format.map]
 [DEFAULT REL]
 BITS 64
 %include "./inc/dosMacro.mac"
 %include "./inc/dosStruc.inc"
 %include "./inc/fatStruc.inc"
 
-struc genioctlGetParamsTable
-    .size           resb 1
-    .res            resb 7
-    .sectorSize     resb 8  ;Only the lower dword is valid here
-    .numSectors     resb 8
+struc lbaParamsBlock
+    .size           db ?
+    .bSpecFuncs     db ?    ;Bit[0] set means get current info. 
+                            ;Bit[0] clear means get base disk max.
+                            ;
+    .wDevFlgs       dw ?    ;Only bits 0 and 1 are xmitted/read
+    .res            db 4 dup (?)
+    .sectorSize     dq ?    ;Only the lower word is valid here
+    .numSectors     dq ?    ;Only the lower dword is valid here
 endstruc
 
 %include "./src/fmtMain.asm"

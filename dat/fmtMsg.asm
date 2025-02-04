@@ -1,12 +1,19 @@
 ;Messages go here
-badVerStr   db "Invalid DOS Version",0Ah,0Dh,"$"
-badDrvLtr   db "Invalid Drive Specified",0Ah,0Dh,"$"
-badRedir    db "Cannot Format Redir, Subst or Join Drives",0Ah,0Dh,"$"
-badGeneric  db "Cannot Format Drive",0Ah,0Dh,"$"
+badVerStr   db "Invalid DOS Version",CR,LF,"$"
+badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
+badRedir    db "Cannot Format Redir, Subst or Join Drives",CR,LF,"$"
+badGeneric  db "Cannot Format Drive",CR,LF,"$"
 cancel      db "Are you sure you wish to abort formatting drive "
-driveLetter db "A?", 0Ah,0Dh
-            db "Doing so may result in an unusable volume. Y/N?",0Ah,0Dh,"$"
-badVolBig   db "Volume too large to format",0Ah,0Dh,"$"
-badSecSize  db "Invalid Medium Sector Size",0Ah,0Dh,"$"
-okFormat    db "Format complete",0Ah,0Dh,"$"
-currentFmt  db "Cannot format current drive",0Ah,0Dh,"$"
+driveLetter db "A?", CR,LF
+            db "Doing so may result in an unusable volume. Y/N?",CR,LF,"$"
+badVolBig   db "Volume too large to format",CR,LF,"$"
+badSecSize  db "Invalid Medium Sector Size",CR,LF,"$"
+okFormat    db "Format complete",CR,LF,"$"
+currentFmt  db "Cannot format current drive",CR,LF,"$"
+
+;Removable device warning message
+fmtRemStr   db "Insert new Media for drive "
+fmtRemStrL  db "X: and strike ENTER when ready$"
+;Hard drive warning message
+fmtHddStr   db "WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
+fmtHddStrL  db "X: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)?"
