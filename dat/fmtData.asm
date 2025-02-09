@@ -109,7 +109,7 @@ genericBPB16:
     at .volLab,         db 'NO NAME    '    
     at .filSysType,     db 'FAT16   '
     iend
-
+gbs_size equ ($ - genericBPB16) + 11
 
 genericBPB32:
     istruc bpb32
@@ -142,3 +142,4 @@ genericBPB32:
     at .volLab,         db 'NO NAME    '    
     at .filSysType,     db 'FAT32   '
     iend
+gbs32_size equ ($ - genericBPB32) + 11

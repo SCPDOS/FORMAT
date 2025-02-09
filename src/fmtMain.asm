@@ -148,10 +148,10 @@ startFormat:
     mov dword [fatSize], eax
     mov al, byte [remDev]
     and al, 80h ;Save only bit 7
-    mov byte [rdi + bpb.drvNum], al
+    mov byte [rdi + bpb_size + extBs.drvNum], al
     call getVolumeID
-    mov dword [rdi + bpb.volID], eax
-    mov byte [bpbSize], 62  ;62 bytes to copy
+    mov dword [rdi + bpb_size + extBs.volId], eax
+    mov byte [bpbSize], gbs_size
     lea rbx, qword [bootloader + bpb_size]
     mov qword [loaderPtr], rbx 
     movzx ecx, word [sectorSize]
@@ -175,7 +175,7 @@ startFormat:
     mov dword [fatSize], eax
     mov al, byte [remDev]
     and al, 80h ;Save only bit 7
-    mov byte [rdi + bpb32.drvNum], al
+    mov byte [rdi + bpb_size + extBs.drvNum], al
     mov word [rdi + bpb32.extFlags], 0  ;FAT mirroring active
     ;Here we need to assign cluster 2 to be root dir. Later we
     ; check to see if we can actually use cluster 2. If yes, 
@@ -185,8 +185,8 @@ startFormat:
     mov word [rdi + bpb32.numHeads],  0FFh
     mov dword [rdi + bpb32.RootClus], 2
     call getVolumeID
-    mov dword [rdi + bpb32.volID], eax
-    mov byte [bpbSize], 90  ;90 bytes to copy
+    mov dword [rdi + bpb_size + extBs.volId], eax
+    mov byte [bpbSize], gbs32_size
     lea rbx, qword [bootloader + 200h + bpb32_size]
     mov qword [loaderPtr], rbx 
     movzx ecx, word [sectorSize]
@@ -228,14 +228,18 @@ startFormat:
     call writeSector
     pop rdx
     pop rcx
-    jc badExitGen
+    jc badBtSctr
     cmp byte [fatType], 2  ;If not 2 (FAT32), skip backup bootsector
     jne syncParams
     ;Now we write the backup BPB too at sector 6
     mov ecx, 1  ;1 Sector to write
     mov edx, 6  ;At sector 6
     call writeSector
-    jc badExitGen
+    jnc syncParams
+badBtSctr:
+;If an error writing the bootsector, error with that output string
+    lea rdx, badBtStrWr 
+    jmp badExit
 syncParams:
 ;NOW WE SYNC THE PARAMS BACK TO THE DRIVER. THIS SETS THE FORMAT BIT
 ; IN THE DRIVER HEADER, FORCES A BUILD BPB AND THUS, A REBUILT DPB.
@@ -243,7 +247,8 @@ syncParams:
 ;CUSTOM FORMATTING. MEDIA/PARTITIONS ARE FULLY FORMATTED.
     mov ch, 08h         ;Disk drive type IOCTL
     mov cl, 80h | 40h   ;Do LBA set parameters
-    mov eax, 440Dh  ;Generic IOCTL 
+    mov eax, 440Dh      ;Generic IOCTL 
+    movzx ebx, byte [fmtDrive]
     lea rdx, reqTable   ;Point to the table to fill in, bl has drive number 
     int 21h
     jc badExitGen

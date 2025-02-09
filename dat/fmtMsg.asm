@@ -10,6 +10,8 @@ badVolBig   db "Volume too large to format",CR,LF,"$"
 badSecSize  db "Invalid Medium Sector Size",CR,LF,"$"
 okFormat    db "Format complete",CR,LF,"$"
 currentFmt  db "Cannot format current drive",CR,LF,"$"
+badBtStrWr  db "Unable to write BOOT",CR,LF,"$"
+badIOCTL    db "Error in IOCTL call",CR,LF,"$"
 
 ;Removable device warning message
 fmtRemStr   db "Insert new Media for drive "
