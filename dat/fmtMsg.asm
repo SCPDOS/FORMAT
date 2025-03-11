@@ -4,7 +4,7 @@ badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
 badRedir    db "Cannot Format Redir, Subst or Join Drives",CR,LF,"$"
 badGeneric  db "Cannot Format Drive",CR,LF,"$"
 cancel      db "Are you sure you wish to abort formatting drive "
-driveLetter db "A?", CR,LF
+cancelL     db "#?", CR,LF
             db "Doing so may result in an unusable volume. Y/N?",CR,LF,"$"
 badVolBig   db "Volume too large to format",CR,LF,"$"
 badSecSize  db "Invalid Medium Sector Size",CR,LF,"$"
@@ -15,7 +15,7 @@ badIOCTL    db "Error in IOCTL call",CR,LF,"$"
 
 ;Removable device warning message
 fmtRemStr   db "Insert new Media for drive "
-fmtRemStrL  db "X: and strike ENTER when ready$"
+fmtRemStrL  db "#: and strike ENTER when ready$"
 ;Hard drive warning message
 fmtHddStr   db "WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
-fmtHddStrL  db "X: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)?"
+fmtHddStrL  db "#: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)?"

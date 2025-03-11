@@ -39,15 +39,19 @@ BITS 64
 %include "./inc/fatStruc.inc"
 
 struc lbaParamsBlock
-    .size           db ?
-    .bSpecFuncs     db ?    ;Bit[0] set means get current info. 
-                            ;Bit[0] clear means get base disk max.
-                            ;
+    .bSize          db ?
+    .bSpecFuncs     db ?    ;Bit[0] clear means get updated drive info. 
+                            ;Bit[0] set means get current drive info.
+                            ;Only meaningful on read. Set must have this as 0.
     .wDevFlgs       dw ?    ;Only bits 0 and 1 are xmitted/read
-    .res            db 4 dup (?)
-    .sectorSize     dq ?    ;Only the lower word is valid here
-    .numSectors     dq ?    ;Only the lower dword is valid here
-    .startSector    dq ?
+    .wFSType        dw ?    ;If one, it is a FAT type. Only valid on getlba.
+                            ; If one, can use CHS functions.
+    .wRes           dw ?
+    .qSectorSize    dq ?    ;Only the lower word is valid here
+    .qNumSectors    dq ?    ;Only the lower dword is valid here
+;The below is the absolute start sector of the partition. It is the 
+; partition at which to find the BPB.
+    .qStartSector   dq ?    ;Only the lower dword is valid here.
 endstruc
 
 %include "./src/fmtMain.asm"

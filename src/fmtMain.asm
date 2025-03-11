@@ -28,16 +28,19 @@ startFormat:
     lea rdx, badDrvLtr
     jmp short .printExit
 .driveOk:
+;Now fetch the drive we are working on
+    mov dl, byte [r8 + psp.fcb1] ;Get the fcb 1 based drvNum
+    dec dl  ;Turn it into a 0 based number
+    mov byte [fmtDrive], dl
+    add dl, "A"             ;Turn into a ASCII char for printing
+    mov byte [cancelL], dl  ;Store for cancel string
+    mov byte [fmtRemStrL], dl   ;And HDD/RemDev strings
+    mov byte [fmtHddStrL], dl
 ; Here we now hook ^C so that if the user calls ^C we restore DOS state
 ; (i.e. default drive and reactivate the drive if it is deactivated)
     lea rdx, breakRoutine
     mov eax, 2523h
     int 21h
-;Now fetch the drive we are working on
-    mov dl, byte [r8 + psp.fcb1] ;Get the fcb 1 based drvNum
-    dec dl  ;Turn it into a 0 based number
-    mov byte [fmtDrive], dl
-    mov byte [driveLetter], dl  ;Store for error message
 .driveSelected:
 ;Now we check that the associate drive is not a network, subst or join.
 ; If it is, fail. Else, we deactivate
@@ -65,16 +68,32 @@ startFormat:
     int 21h
     jc badExitGen
     test al, al
-    jz .gotRemStatus
+    jz .gotRemDev
     or byte [media], 8      ;Turn to 0F8h
     mov byte [remDev], -1   ;Indicate Fixed drive
 ;Print the Hard Drive Partition warning string.
-.gotRemStatus:
+    lea rdx, fmtHddStr
+    call doYNWait
+    jnc .getDrvParams
+    mov eax, 4C01h  ;Return code 01h, user selected exit
+    int 21h
+.gotRemDev:
+;Print the rem dev warning string
+    lea rdx, fmtHddStr
+    mov eax, 0900h  ;Print string
+    int 21h
+;Now we must pause to read an enter char!
+;Then we must set the bit in the parameter block to force a return of the
+;   physical parameters of the medium to reset any dodgy BPB values or
+;   purposefully restricting BPBs.
+    inc byte [reqTable + lbaParamsBlock.bSpecFuncs] ;Make it 2
+.getDrvParams:
 ;Now request IOCTL to give medium parameters
     mov ch, 08h         ;Disk drive type IOCTL
     mov cl, 80h | 60h   ;Do LBA get parameters
-    mov eax, 440Dh  ;Generic IOCTL 
-    lea rdx, reqTable   ;Point to the table to fill in, bl has drive number 
+    lea rdx, reqTable   ;Point to the table to fill in
+    movzx ebx, byte [fmtDrive]    ;0 based number
+    mov eax, 440Dh  ;Generic IOCTL call to the disk subsystem
     int 21h
     jc badExitGen
     mov rax, qword [rdx + lbaParamsBlock.sectorSize]    ;Get sector size
@@ -589,20 +608,35 @@ breakRoutine:
 ;This subroutine is called by ^C
 ;Prompts the user for what they want to do.
     lea rdx, cancel
+    call doYNWait   ;If returns with CF=CY, exit! Else just redo operation!
+    jnc .breakReturnNoExit
+    or byte [rsp + 8*2], 1  ;Set CF on the stack flags
+    call dosCrit1Exit   ;Exit the critical section since we are quitting
+.breakReturnNoExit:
+    iretq   ;Redo the operation
+
+doYNWait:
+;Input: rdx -> String to wait for Y/N on.
+;Output: CF=NC -> N
+;        CF=CY -> Y
+    push rdx
     mov ah, 09h
     int 21h
     mov ah, 01h ;Get a char
     int 21h
     cmp al, "y"
-    je short .breakReturnExit
+    je .yes
     cmp al, "Y"
-    je short .breakReturnExit
+    je .yes
     cmp al, "n"
-    je short .breakReturnNoExit
+    je .no
     cmp al, "N"
-    jmp short breakRoutine 
-.breakReturnExit:
-    or byte [rsp + 8*2], 1  ;Set CF on the stack flags
-    call dosCrit1Exit   ;Exit the critical section since we are quitting
-.breakReturnNoExit:
-    iretq   ;Redo the operation
+    je .no
+    pop rdx
+    jmp short breakRoutine
+.yes:
+    stc
+.no:
+    pop rdx
+    return
+

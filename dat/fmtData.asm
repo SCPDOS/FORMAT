@@ -4,7 +4,8 @@ reqTable:
         at .size,           db lbaParamsBlock_size
         at .bSpecFuncs,     db 1    ;Get info for current partition
         at .wDevFlgs,       dw 0
-        at .res,            db 4 dup (0)
+        at .wFSType,        dw 0
+        at .res,            dw 0
         at .sectorSize,     dq 0
         at .numSectors,     dq 0
         at .startSector,    dq 0
