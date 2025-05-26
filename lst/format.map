@@ -11,14 +11,14 @@ Output file:  ./bin/FORMAT.COM
 -- Sections (summary) ---------------------------------------------------------
 
 Vstart            Start             Stop              Length    Class     Name
-               0                 0               A6C  00000A6C  progbits  .text
+               0                 0               E25  00000E25  progbits  .text
 
 -- Sections (detailed) --------------------------------------------------------
 
 ---- Section .text ------------------------------------------------------------
 
 class:     progbits
-length:                 A6C
+length:                 E25
 start:                    0
 align:     not defined
 follows:   not defined
@@ -467,16 +467,18 @@ AA550000  fsInfoSig3
 00000066  bpbEx.reserved
 0000006D  bpbEx_size
 00000000  lbaParamsBlock
-00000000  lbaParamsBlock.size
+00000000  lbaParamsBlock.bSize
 00000001  lbaParamsBlock.bSpecFuncs
 00000002  lbaParamsBlock.wDevFlgs
-00000004  lbaParamsBlock.res
-00000008  lbaParamsBlock.sectorSize
-00000010  lbaParamsBlock.numSectors
-00000018  lbaParamsBlock.startSector
+00000004  lbaParamsBlock.wFSType
+00000006  lbaParamsBlock.wRes
+00000008  lbaParamsBlock.qSectorSize
+00000010  lbaParamsBlock.qNumSectors
+00000018  lbaParamsBlock.qStartSector
 00000020  lbaParamsBlock_size
 0000003E  gbs_size
 0000005A  gbs32_size
+0000001A  fmtPcntMsgL
 
 
 ---- Section .text ------------------------------------------------------------
@@ -487,108 +489,161 @@ Real              Virtual           Name
                3                 3  startFormat.sectorSize
                5                 5  startFormat.cVersion
               1A                1A  startFormat.printExit
-              20                20  startFormat.okVersion
-              25                25  startFormat.badDrive
-              2E                2E  startFormat.driveOk
-              5D                5D  startFormat.driveSelected
-              78                78  startFormat.walkCDSArray
-              83                83  startFormat.atCurrentCDS
-              90                90  startFormat.badRedir
-              C7                C7  startFormat.gotRemDev
-              C7                C7  startFormat.getDrvParams
-             132               132  startFormat.badSize
-             13E               13E  startFormat.okSize
-             164               164  startFormat.fat16Lp
-             181               181  startFormat.fat32Lp
-             193               193  startFormat.medFound
-             245               245  startFormat.fat32
-             2DD               2DD  startFormat.bpbReady
-             386               386  badBtSctr
-             392               392  syncParams
-             3B1               3B1  createFAT
-             42C               42C  createFAT.fatFillLoop
-             466               466  rootDirectory
-             492               492  rootDirectory.fatLoop
-             4AE               4AE  rootDirectory.fat32
-             50E               50E  rootDirectory.fat32RootClean
-             5B6               5B6  exitFormat
-             5DC               5DC  freeMemoryBlock
-             5E6               5E6  ..@78._base
-             5E8               5E8  ..@79._ret
-             5E9               5E9  ..@78.a
-             5F0               5F0  ..@80._ret
-             5F1               5F1  writeFATStartSig
-             60E               60E  writeFATStartSig.fat16
-             612               612  writeFATStartSig.fat32
-             61C               61C  writeFATStartSig.exit
-             61E               61E  ..@81._ret
-             61F               61F  getVolumeID
-             631               631  ..@82._ret
-             632               632  computeFATSize
-             67A               67A  computeFATSize.notFat32
-             686               686  computeFATSize.exit
-             68A               68A  ..@83._ret
-             68B               68B  readSector
-             69B               69B  ..@84._ret
-             69C               69C  writeSector
-             6AC               6AC  ..@85._ret
-             6AD               6AD  badExitGen
-             6B4               6B4  badExit
-             6C2               6C2  badExit.noCrit
-             6CB               6CB  badExit.noPrint
-             6D7               6D7  dosCrit1Enter
-             6E0               6E0  ..@86._ret
-             6E1               6E1  dosCrit1Exit
-             6EA               6EA  ..@87._ret
-             6EB               6EB  breakRoutine
-             70A               70A  breakRoutine.breakReturnExit
-             714               714  breakRoutine.breakReturnNoExit
-             716               716  reqTable
-             716               716  ..@89.strucstart
-             736               736  fmtDrive
-             737               737  inCrit
-             738               738  cdsPtr
-             740               740  bufferArea
-             748               748  breakByte
-             749               749  remDev
-             74A               74A  fatType
-             74B               74B  sectorSize
-             74D               74D  numSectors
-             755               755  secPerClust
-             756               756  fatSize
-             75A               75A  media
-             75B               75B  bpbPointer
-             763               763  bpbSize
-             764               764  hiddSector
-             768               768  loaderPtr
-             770               770  loaderBytes
-             772               772  f32RootClus
-             776               776  fat16ClusterTable
-             78F               78F  fat32ClusterTable
-             7B3               7B3  genericBPB12
-             7B3               7B3  ..@99.strucstart
-             7CC               7CC  ..@114.strucstart
-             7E6               7E6  genericBPB16
-             7E6               7E6  ..@123.strucstart
-             7FF               7FF  ..@138.strucstart
-             819               819  genericBPB32
-             819               819  ..@147.strucstart
-             84E               84E  ..@169.strucstart
-             868               868  badVerStr
-             87E               87E  badDrvLtr
-             898               898  badRedir
-             8C4               8C4  badGeneric
-             8DA               8DA  cancel
-             90A               90A  cancelL
-             940               940  badVolBig
-             95D               95D  badSecSize
-             97A               97A  okFormat
-             98C               98C  currentFmt
-             9AA               9AA  badBtStrWr
-             9C1               9C1  badIOCTL
-             9D7               9D7  fmtRemStr
-             9F2               9F2  fmtRemStrL
-             A11               A11  fmtHddStr
-             A40               A40  fmtHddStrL
-             A6C               A6C  bootloader
+              24                24  startFormat.okVersion
+              29                29  startFormat.badDrive
+              32                32  startFormat.driveOk
+              61                61  startFormat.driveSelected
+              7C                7C  startFormat.walkCDSArray
+              87                87  startFormat.atCurrentCDS
+              F0                F0  startFormat.gotRemDev
+             102               102  startFormat.getDrvParams
+             1A5               1A5  startFormat.fat16Lp
+             1C2               1C2  startFormat.fat32Lp
+             1D7               1D7  startFormat.medFound
+             289               289  startFormat.fat32
+             321               321  startFormat.bpbReady
+             3DB               3DB  syncParams
+             3FA               3FA  createFAT
+             475               475  createFAT.fatFillLoop
+             4AF               4AF  rootDirectory
+             4DB               4DB  rootDirectory.fatLoop
+             4F7               4F7  rootDirectory.fat32
+             556               556  rootDirectory.fat32RootClean
+             5F4               5F4  exitFormat
+             635               635  writeStatusUpdate
+             67D               67D  writeStatusUpdate.exit
+             67F               67F  ..@78._ret
+             680               680  printDecimalValLB
+             6A5               6A5  printDecimalValLB.skipLp
+             6BF               6BF  printDecimalValLB.printLp
+             6CD               6CD  printDecimalValLB.exit
+             6D0               6D0  ..@79._ret
+             6D1               6D1  printDecimalValLB.errPrint
+             6DA               6DA  decimalise
+             6E4               6E4  decimalise.lp
+             6F8               6F8  decimalise.skipSep
+             716               716  decimalise.exit
+             717               717  ..@80._ret
+             718               718  decimalise.exitErr
+             71B               71B  cleanBuffer
+             72D               72D  ..@81._ret
+             72E               72E  prepPrintVals
+             757               757  ..@82._ret
+             758               758  prepPrintVals.quick
+             791               791  ..@84._base
+             79A               79A  ..@85._ret
+             79B               79B  prepPrintVals.fat32
+             7AE               7AE  ..@86._ret
+             7AF               7AF  writeFATStartSig
+             7CC               7CC  writeFATStartSig.fat16
+             7D0               7D0  writeFATStartSig.fat32
+             7DA               7DA  writeFATStartSig.exit
+             7DC               7DC  ..@87._ret
+             7DD               7DD  getVolumeID
+             7EF               7EF  ..@88._ret
+             7F0               7F0  computeFATSize
+             838               838  computeFATSize.notFat32
+             844               844  computeFATSize.exit
+             848               848  ..@89._ret
+             849               849  badBtSctrExit
+             861               861  badFATExit
+             876               876  badDirExit
+             88B               88B  badFSINFOExit
+             8A0               8A0  badIOCTLExit
+             8AC               8AC  badIOCTLExit.alt
+             8B5               8B5  badVolExit
+             8BE               8BE  badSecSizeExit
+             8C7               8C7  badNetExit
+             8D0               8D0  badSubstExit
+             8D9               8D9  badExitGen
+             8E0               8E0  badExitCmn
+             8EF               8EF  badExitCmn.noPrint
+             8F4               8F4  doYNWait
+             912               912  doYNWait.yes
+             913               913  doYNWait.no
+             914               914  ..@90._ret
+             915               915  doCRWait
+             925               925  ..@91._ret
+             926               926  breakRoutine
+             93E               93E  breakRoutine.breakReturnNoExit
+             940               940  getch
+             947               947  ..@92._ret
+             948               948  putch
+             94F               94F  ..@93._ret
+             950               950  printString
+             957               957  ..@94._ret
+             958               958  checkBreak
+             95F               95F  ..@95._ret
+             960               960  exitOk
+             967               967  exitError
+             96E               96E  exitNoFormatFixed
+             975               975  readSector
+             98A               98A  ..@96._ret
+             98B               98B  writeSector
+             9AC               9AC  ..@97._ret
+             9AD               9AD  dosCrit1Enter
+             9BD               9BD  ..@98._ret
+             9BE               9BE  dosCrit1Exit
+             9C5               9C5  ..@100._base
+             9D7               9D7  ..@101._ret
+             9D8               9D8  reqTable
+             9D8               9D8  ..@103.strucstart
+             9F8               9F8  fmtDrive
+             9F9               9F9  inCrit
+             9FA               9FA  cdsPtr
+             A02               A02  bufferArea
+             A0A               A0A  quickByte
+             A0B               A0B  remDev
+             A0C               A0C  fatType
+             A0D               A0D  sectorSize
+             A0F               A0F  numSectors
+             A17               A17  secPerClust
+             A18               A18  fatSize
+             A1C               A1C  media
+             A1D               A1D  bpbPointer
+             A25               A25  bpbSize
+             A26               A26  hiddSector
+             A2A               A2A  loaderPtr
+             A32               A32  loaderBytes
+             A34               A34  f32RootClus
+             A38               A38  secToWrite
+             A40               A40  secWritten
+             A48               A48  secPercent
+             A49               A49  fat16ClusterTable
+             A62               A62  fat32ClusterTable
+             A86               A86  genericBPB12
+             A86               A86  ..@114.strucstart
+             A9F               A9F  ..@129.strucstart
+             AB9               AB9  genericBPB16
+             AB9               AB9  ..@138.strucstart
+             AD2               AD2  ..@153.strucstart
+             AEC               AEC  genericBPB32
+             AEC               AEC  ..@162.strucstart
+             B21               B21  ..@184.strucstart
+             B3B               B3B  badVerStr
+             B51               B51  badDrvLtr
+             B6B               B6B  badNetDrv
+             B8B               B8B  badSubsDrv
+             BAB               BAB  badGeneric
+             BC1               BC1  cancel
+             BF1               BF1  cancelL
+             C27               C27  badVolBig
+             C44               C44  badSecSize
+             C61               C61  currentFmt
+             C7F               C7F  badBtStrWr
+             C96               C96  badFSInfoWr
+             CB0               CB0  badIOCTL
+             CC6               CC6  badFATWr
+             CDA               CDA  badDirWr
+             CF4               CF4  fmtRemStr
+             D0F               D0F  fmtRemStrL
+             D2E               D2E  fmtHddStr
+             D5F               D5F  fmtHddStrL
+             D8D               D8D  crlfStr
+             D90               D90  fmtMsg
+             DA0               DA0  fmtPcntMsg
+             DB7               DB7  againStr
+             DCE               DCE  okFormat
+             DFA               DFA  badFmtFail
+             E25               E25  bootloader
 

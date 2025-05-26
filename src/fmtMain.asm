@@ -16,9 +16,8 @@ startFormat:
     pop rax
     lea rdx, badVerStr
 .printExit:
-    mov ah, 09h
-    int 21h
-    int 20h ;Exit to caller or DOS to print bad command interpreter line
+    call printString
+    jmp exitError
 .okVersion:
 ;Check the passed argument is ok (flag in al)
     pop rax
@@ -55,18 +54,19 @@ startFormat:
     dec ecx
     jnz .walkCDSArray
 .atCurrentCDS: 
+;Cannot format a Redir drive for now (Will use the net redirector for this)
+    test word [rsi + cds.wFlags], cdsRedirDrive
+    jnz badNetExit
+;Cannot format a subst drive
+    test word [rsi + cds.wFlags], cdsSubstDrive
+    jnz badSubstExit
     mov qword [cdsPtr], rsi ;Save a ptr to the current CDS
-    test word [rsi + cds.wFlags], cdsJoinDrive | cdsSubstDrive | cdsRedirDrive
-.badRedir:
-;Cannot format a Join/Subst/Redir drive
-    lea rdx, badRedir
-    jnz badExit
 ;Now attempt to ascertain if removable or not.
     movzx ebx, byte [fmtDrive]    ;0 based number
     inc ebx  ;Turn it into a 1 based number
     mov eax, 4408h  ;IOCTL, Get if removable or not. Should never fail
     int 21h
-    jc badExitGen
+    jc badIOCTLExit.alt ;Don't print format failed!
     test al, al
     jz .gotRemDev
     or byte [media], 8      ;Turn to 0F8h
@@ -74,49 +74,49 @@ startFormat:
 ;Print the Hard Drive Partition warning string.
     lea rdx, fmtHddStr
     call doYNWait
-    jnc .getDrvParams
-    mov eax, 4C01h  ;Return code 01h, user selected exit
-    int 21h
+    pushfq
+    lea rdx, crlfStr
+    call printString
+    popfq
+    jnc exitNoFormatFixed   ;CF=NC means don't proceed
+    jmp short .getDrvParams
 .gotRemDev:
 ;Print the rem dev warning string
-    lea rdx, fmtHddStr
-    mov eax, 0900h  ;Print string
-    int 21h
-;Now we must pause to read an enter char!
-;Then we must set the bit in the parameter block to force a return of the
-;   physical parameters of the medium to reset any dodgy BPB values or
-;   purposefully restricting BPBs.
+    lea rdx, fmtRemStr
+    call doCRWait
+;Now we set the bit in the parameter block to force a return of the
+; physical parameters of the medium to reset any dodgy BPB values or
+; purposefully restricting BPBs.
     inc byte [reqTable + lbaParamsBlock.bSpecFuncs] ;Make it 2
 .getDrvParams:
+;Print CRLF to signal remdev inserted/fixed disk warning accepted
+    lea rdx, crlfStr
+    call printString
 ;Now request IOCTL to give medium parameters
     mov ch, 08h         ;Disk drive type IOCTL
     mov cl, 80h | 60h   ;Do LBA get parameters
     lea rdx, reqTable   ;Point to the table to fill in
     movzx ebx, byte [fmtDrive]    ;0 based number
+    inc ebx         ;Needs to be a 1 based number for the genioctl call
     mov eax, 440Dh  ;Generic IOCTL call to the disk subsystem
     int 21h
-    jc badExitGen
-    mov rax, qword [rdx + lbaParamsBlock.sectorSize]    ;Get sector size
+    jc badIOCTLExit
+    mov rax, qword [rdx + lbaParamsBlock.qSectorSize]    ;Get sector size
     mov word [sectorSize], ax
-    mov eax, dword [rdx + lbaParamsBlock.startSector]
+    mov eax, dword [rdx + lbaParamsBlock.qStartSector]
     mov dword [hiddSector], eax
-    mov rax, qword [rdx + lbaParamsBlock.numSectors]    ;Get num sectors
+    mov rax, qword [rdx + lbaParamsBlock.qNumSectors]    ;Get num sectors
     mov qword [numSectors], rax
     movzx edx, word [startFormat.sectorSize]  ;Get the start var
     cmp word [sectorSize], dx ;Only allow for sector size 200h for now
-    lea rdx, badSecSize
-    jne badExit
+    jne badSecSizeExit
     ;Now we select the FAT based on the size of the volume
     movzx ebx, word [sectorSize]    ;Get the sector size
     mul rbx ;Multiply rax with rbx
     ;rax has the number of bytes on the volume
     mov rbx, 1FFFFFFFE00h ;If our volume is above 2Tb in size, abort
     cmp rax, rbx
-    jb .okSize
-.badSize:
-    lea rdx, badVolBig
-    jmp badExit
-.okSize:
+    jnb badVolExit
     xor ebx, ebx
     mov byte [fatType], 0   ;Start by saying it must be FAT12
     mov ecx, 4  ;4 entries in the fat16table without the first entry
@@ -140,7 +140,7 @@ startFormat:
     add rsi, 9
     dec ecx
     jnz .fat32Lp
-    jmp short .badSize
+    jmp badVolExit
 .medFound:
 ;Called with rsi pointing to the table entry
     mov al, byte [rsi + 4]  ;Get the sector per cluster value in al
@@ -194,7 +194,7 @@ startFormat:
     mov dword [fatSize], eax
     mov al, byte [remDev]
     and al, 80h ;Save only bit 7
-    mov byte [rdi + bpb_size + extBs.drvNum], al
+    mov byte [rdi + bpb32_size + extBs.drvNum], al
     mov word [rdi + bpb32.extFlags], 0  ;FAT mirroring active
     ;Here we need to assign cluster 2 to be root dir. Later we
     ; check to see if we can actually use cluster 2. If yes, 
@@ -204,7 +204,7 @@ startFormat:
     mov word [rdi + bpb32.numHeads],  0FFh
     mov dword [rdi + bpb32.RootClus], 2
     call getVolumeID
-    mov dword [rdi + bpb_size + extBs.volId], eax
+    mov dword [rdi + bpb32_size + extBs.volId], eax
     mov byte [bpbSize], gbs32_size
     lea rbx, qword [bootloader + 200h + bpb32_size]
     mov qword [loaderPtr], rbx 
@@ -214,6 +214,7 @@ startFormat:
 .bpbReady:
 ;Now the BPB is ready, save the pointer and now setup bootsector for writing
     mov qword [bpbPointer], rdi
+    call prepPrintVals
     movzx ebx, word [sectorSize] ;Get the sector size
     shr ebx, 4  ;Divide by 4 to get number of paragraphs
     mov eax, 4800h  ;Allocate
@@ -238,16 +239,19 @@ startFormat:
     mov rbx, qword [bufferArea] ;rbx = Memory Buffer address to read from
     mov byte [rbx + 509], 0 ;Make the disk not bootable
     mov word [rbx + 510], 0AA55h
+    breakpoint
+    lea rdx, fmtMsg     ;Now we are about to write, print this message
+    call printString
+
+    call dosCrit1Enter
     mov ecx, 1      ;ecx = Number of sectors to write
     xor edx, edx    ;rdx = Start LBA to write to
-    call dosCrit1Enter
-    mov byte [inCrit], -1   ;Entering a DOS level 1 critical section
     push rcx
     push rdx
     call writeSector
     pop rdx
     pop rcx
-    jc badBtSctr
+    jc badBtSctrExit
     cmp byte [fatType], 2  ;If not 2 (FAT32), skip backup bootsector
     jne syncParams
     ;Now we write the backup BPB too at sector 6
@@ -255,10 +259,7 @@ startFormat:
     mov edx, 6  ;At sector 6
     call writeSector
     jnc syncParams
-badBtSctr:
-;If an error writing the bootsector, error with that output string
-    lea rdx, badBtStrWr 
-    jmp badExit
+
 syncParams:
 ;NOW WE SYNC THE PARAMS BACK TO THE DRIVER. THIS SETS THE FORMAT BIT
 ; IN THE DRIVER HEADER, FORCES A BUILD BPB AND THUS, A REBUILT DPB.
@@ -270,7 +271,7 @@ syncParams:
     movzx ebx, byte [fmtDrive]
     lea rdx, reqTable   ;Point to the table to fill in, bl has drive number 
     int 21h
-    jc badExitGen
+    jc badIOCTLExit
 createFAT:
     ;Now we create the FAT sectors.
     ;We write both copies one sector at a time interleaving them.
@@ -291,7 +292,7 @@ createFAT:
     call writeSector
     pop rsi
     pop rdx
-    jc badExitGen
+    jc badFATExit
     mov eax, dword [fatSize]
     add edx, eax    ;Go to second fat copy
     mov ecx, 1
@@ -302,7 +303,7 @@ createFAT:
     pop rsi
     pop rdx
     pop rax
-    jc badExitGen
+    jc badFATExit
     mov rdi, qword [bufferArea]
     mov qword [rdi], 0  ;Overwrite the FAT reserved cluster markers
     mov dword [rdi + 8], 0  ;Overwrite potential additional FAT32 data
@@ -316,7 +317,7 @@ createFAT:
     call writeSector
     pop rsi
     pop rdx
-    jc badExitGen
+    jc badFATExit
     mov eax, dword [fatSize]
     add edx, eax    ;Go to second fat copy
     mov ecx, 1
@@ -327,7 +328,7 @@ createFAT:
     pop rsi
     pop rdx
     pop rax
-    jc badExitGen
+    jc badFATExit
     dec esi
     jnz .fatFillLoop
     ;Fall through once done with FAT
@@ -357,7 +358,7 @@ rootDirectory:
     pop rsi
     pop rdx
     pop rcx
-    jc badExitGen
+    jc badDirExit
     dec esi
     jnz .fatLoop
     jmp exitFormat
@@ -384,15 +385,14 @@ rootDirectory:
     call writeSector
     pop rdx
     pop rcx
+    jc badDirExit
     add edx, dword [genericBPB32 + bpb32.FATsz32]   ;Go to backup FAT sector
     push rdx
     call writeSector
     pop rdx
+    jc badDirExit
     add edx, dword [genericBPB32 + bpb32.FATsz32]   ;Go to first data sector
-    mov rdi, qword [bufferArea]
-    xor eax, eax
-    movzx ecx, word [genericBPB32 + bpb32.bytsPerSec]
-    rep stosb   ;Clean the buffer for writeback
+    call cleanBuffer    ;Clean the buffer for writeback
     movzx esi, byte [genericBPB32 + bpb32.secPerClus]
     mov ecx, 1
 .fat32RootClean:
@@ -403,6 +403,7 @@ rootDirectory:
     pop rsi
     pop rdx
     pop rcx
+    jc badDirExit
     inc edx ;Next consecutive sector
     dec esi ;Decrement count
     jnz .fat32RootClean
@@ -423,11 +424,7 @@ rootDirectory:
     mov edx, eax    ;Save this value in edx
 ;Now we are done with the common bit, last thing for FAT32, create the
 ; FSInfo (with no useful info, for now as DOS will not sync this)
-    mov rbx, qword [bufferArea]
-    mov rdi, rbx
-    xor eax, eax
-    movzx ecx, word [sectorSize]
-    rep stosb   ;Clean the Sector buffer
+    call cleanBuffer
     mov dword [rbx], 41615252h  ;Initial signature
     mov dword [rbx + 484], 61417272h    ;Intermediate signature
     mov dword [rbx + 488], edx ;Free cluster count
@@ -438,30 +435,185 @@ rootDirectory:
     push rcx
     call writeSector
     pop rcx
-    jc badExitGen
+    jc badFSINFOExit
     mov edx, 7
     call writeSector
-    jc badExitGen
+    jc badFSINFOExit
 exitFormat:
-    mov byte [inCrit], 0    ;Out of the critical section now
     call dosCrit1Exit
-    call freeMemoryBlock
-    lea rdx, okFormat
-    mov eax, 0900h
-    int 21h
-    mov eax, 4C00h  ;Return with 0 as error code
-    int 21h
+    lea rdx, okFormat   ;Successfully formatted!
+    call printString
+    test byte [remDev], -1  ;Was this drive fixed? Set if so.
+    jnz exitOk
+;If we formatted on a remdev, ask if we wanna go again?
+    lea rdx, againStr
+    call doYNWait
+    jnc exitOk  ;If not, we are done!
+    lea rdx, crlfStr
+    call printString    ;Output a new line!
+    jmp startFormat.gotRemDev ;And prompt user to insert new media in drive :)
+
+;--------------------------------------
+;          Utility functions          :
+;--------------------------------------
+writeStatusUpdate:
+    push rcx
+    push rdx
+    mov rax, qword [secWritten]
+    mov ebx, 100
+    mul rax ;Multiply number of sectors by 100
+    mov rbx, qword [secToWrite]
+    xor edx, edx
+    div rbx ;Get percentage of written sectors in rax (formally al)
+    cmp al, byte [secPercent]
+    je .exit    ;If they are equal, dont bother printing again
+;Here we have a new percentage! Update the message!
+    mov byte [secPercent], al
+    mov ecx, 3  ;Max 3 chars to print (up to 100)
+    call printDecimalValLB
+    lea rdx, fmtPcntMsg
+    call printString
+    mov dl, CR
+    call putch  ;End by returning to the start of the line
+.exit:
+    pop rdx
+    pop rcx
+    return 
+
+printDecimalValLB:
+;Takes a value in rax and prints it's decimal representation with leading
+; blanks and inserts commas where appropriate.
+;Input: rax = Value to print
+;       rcx = Buffer size to handle (usual values: 17 for max, 13 for dword)
+    mov rbp, rsp
+    sub rsp, rcx ;Allocate the buffer on the stack
+    mov rdi, rbp
+    sub rdi, rcx
+    push rax
+    push rcx
+    push rdi
+    xor eax, eax
+    rep stosb   ;Initialise the buffer with a null value
+    pop rdi     ;Now set the ptr to the head of the buffer
+    pop rcx
+    pop rax
+    push rcx    ;Save this value to keep the buffer length
+    call decimalise   ;If return with CF=CY, error!
+    pop rcx     ;Now print the buffer
+    mov rdi, rbp
+    dec rdi     ;Doesn't affect CF
+    jc .errPrint    ;Print a mis-aligned ? to clearly mark an error!
+.skipLp:
+    mov bl, byte [rdi]
+    test bl, bl ;Any leading null's get replaced with a space
+    jne .printLp
+    mov dl, " "
+    call putch
+    dec rdi
+    dec ecx
+    cmp ecx, 1
+    jne .skipLp   ;Always print 1 byte for size
+.printLp:
+    mov dl, byte [rdi]
+    call putch
+    dec rdi
+    dec ecx
+    jnz .printLp
+.exit:
+    mov rsp, rbp    ;Deallocate the buffer and exit!
+    return
+.errPrint:
+;Print a default ? symbol if an overflow occurs.
+    mov dl, "?"
+    call putch
+    jmp short .exit
+
+decimalise:
+;Input: rax = value to decimalise
+;       rdi -> Ptr to byte buffer to store string in with commas
+;       ecx = buffer length
+;Output: Buffer @ rdi filled in! 
+;       ecx = Number of chars in buffer.
+; Warning: If the number of chars in the buffer reaches buffer length,
+;   we return with CF=CY. Else, CF=NC.
+    push rdi
+    mov esi, ecx    
+    xor ecx, ecx    ;Use cl as buffer length ctr, ch as comma ctr
+    mov ebx, 0Ah    ;Divide by 10
+.lp:
+    cmp ch, 3       ;Are we divisible by 3?
+    jne .skipSep
+    cmp sil, cl
+    je .exitErr     ;Before we add a comma, do we have space?
+    ;mov dl, byte [ctryData + countryStruc.thouSep]
+    ;mov byte [rdi], dl
+    mov byte [rdi], ","
+    inc rdi 
+    inc cl          ;Inc number of chars
+    xor ch, ch      ;Reset comma counter
+.skipSep:
+    cmp sil, cl
+    je .exitErr     ;Before we add a digit, do we have space?
+    xor edx, edx
+    div rbx         ;Divide rax by 10
+    add dl, "0"     
+    mov byte [rdi], dl
+    inc rdi
+    inc cl          ;Inc number of chars
+    inc ch          ;Inc to keep track of commas
+    test rax, rax
+    jnz .lp
+;The test cleared CF if we are here
+    movzx ecx, cl
+.exit:
+    pop rdi
+    return
+.exitErr:
+    stc
+    jmp short .exit
 
 
-;Utility functions below
-freeMemoryBlock:
-    mov r8, qword [bufferArea]
-    test r8, r8
-    retz
-    mov eax, 4900h
-    int 21h
+cleanBuffer:
+;Cleans the sector buffer
+    mov rdi, qword [bufferArea]
+    movzx ecx, word [sectorSize]
+    xor eax, eax
+    rep stosb   ;Clean the Sector buffer
     return
 
+prepPrintVals:
+;Compute secToWrite and initialise secWritten and secPercent.
+    mov qword [secWritten], 0
+    mov byte [secPercent], -1
+    test byte [quickByte], -1
+    jnz .quick
+    mov rax, qword [numSectors]
+    mov qword [secToWrite], rax
+    return
+.quick:
+    mov eax, dword [fatSize]
+    shl rax, 1  ;Multiply this value by 2 for two FATs
+    mov qword [secToWrite], rax
+    cmp byte [fatType], 2
+    je .fat32
+    mov rsi, qword [bpbPointer]
+    movzx eax, word [rsi + bpb.rootEntCnt]  ;Number of 32 bit entries
+    shl eax, 5  ;Get number of bytes in root dir
+    movzx esi, word [rsi + bpb.bytsPerSec]
+    xor edx, edx
+    div esi ;Get number of whole sectors in eax. edx is remainder. 
+    inc eax ;Add one for the bootsector
+    add qword [secToWrite], rax ;Add whole sectors and bootsector to count
+    test edx, edx   ;If no remainder (should never be a remainder), exit
+    retz
+    inc qword [secToWrite]  ;Add one for remainder
+    return
+.fat32:
+;Now add dir sectors and two bootsectors and two fsinfo sectors (4)
+    movzx eax, byte [secPerClust]   ;Sectors per cluster (1 cluster for dir)
+    add eax, 4  ;Two BS + 2 FSINFO
+    add qword [secToWrite], rax
+    return
 writeFATStartSig:
 ;Writes the first two cluster blocks with the necessary signature
 ;Input: rdi -> Start of the FAT sector
@@ -485,6 +637,7 @@ writeFATStartSig:
     pop rbx
     pop rax
     return
+
 getVolumeID:
 ;Uses the time to set a volume ID
 ;Output: eax = VolumeID
@@ -495,6 +648,7 @@ getVolumeID:
     shl ebx, 10h
     or eax, ebx
     return
+
 computeFATSize:
 ; ;Works on the genericBPB in memory. Applies the following algorithm
 ; RootDirSectors = ((BPB_RootEntCnt * 32) + (BPB_BytsPerSec – 1)) / BPB_BytsPerSec;
@@ -553,77 +707,70 @@ computeFATSize:
     pop rbx
     return
 
-readSector:
-;Input:
-;rbx = Memory Buffer address to write to
-;ecx = Number of sectors to read
-;rdx = Start LBA to read from
-    mov al, byte [fmtDrive]     ; Always read from fmtDrive
-    mov rbx, qword [bufferArea] ; Memory Buffer address to read from
-    int 25h
-    pop rax ;Pop old flags into rax
-    return
-writeSector:
-;Input:
-;al = Drive number
-;rbx = Memory Buffer address to read from
-;ecx = Number of sectors to write
-;rdx = Start LBA to write to
-    mov al, byte [fmtDrive]     ; Always write to fmtDrive
-    mov rbx, qword [bufferArea] ; Memory Buffer address to read from
-    int 26h
-    pop rax ;Pop old flags into rax
-    return
+;----------------------------------------
+;          Error Exit wrappers          :
+;----------------------------------------
+;If we need "Format failed" printed, print before jumping here
+badBtSctrExit:
+    lea rdx, badFmtFail
+    call printString
+    lea rdx, badBtStrWr 
+    jmp badExitCmn
+badFATExit:
+    lea rdx, badFmtFail
+    call printString
+    lea rdx, badFATWr
+    jmp short badExitCmn
+badDirExit:
+    lea rdx, badFmtFail
+    call printString
+    lea rdx, badDirWr
+    jmp short badExitCmn
+badFSINFOExit:
+    lea rdx, badFmtFail
+    call printString
+    lea rdx, badFSInfoWr
+    jmp short badExitCmn
+badIOCTLExit:
+    lea rdx, badFmtFail
+    call printString
+.alt:
+    lea rdx, badIOCTL
+    jmp short badExitCmn
+badVolExit:
+    lea rdx, badVolBig
+    jmp short badExitCmn
+badSecSizeExit:
+    lea rdx, badSecSize
+    jmp short badExitCmn
+badNetExit:
+    lea rdx, badNetDrv
+    jmp short badExitCmn
+badSubstExit:
+    lea rdx, badSubsDrv
+    jmp short badExitCmn
 badExitGen:
     lea rdx, badGeneric
-badExit:
+badExitCmn:
 ;Jumped to with rdx = Error message or 0 if no message
-    test byte [inCrit], -1
-    jz .noCrit
-    call dosCrit1Exit
-.noCrit:
+    call dosCrit1Exit   ;Just returns if not in a critical section
     test rdx, rdx
     jz .noPrint
-    mov ah, 09h
-    int 21h
+    call printString
 .noPrint:
-    call freeMemoryBlock    ;Free the memory block if it needs freeing
-    mov eax, 4CFFh  ;Return with -1 as error code
-    int 21h
+    jmp exitError
 
-dosCrit1Enter:
-    push rax 
-    mov eax, 8001h
-    int 2ah
-    pop rax
-    return
-dosCrit1Exit:
-    push rax 
-    mov eax, 8101h
-    int 2ah
-    pop rax
-    return
-
-breakRoutine:
-;This subroutine is called by ^C
-;Prompts the user for what they want to do.
-    lea rdx, cancel
-    call doYNWait   ;If returns with CF=CY, exit! Else just redo operation!
-    jnc .breakReturnNoExit
-    or byte [rsp + 8*2], 1  ;Set CF on the stack flags
-    call dosCrit1Exit   ;Exit the critical section since we are quitting
-.breakReturnNoExit:
-    iretq   ;Redo the operation
+;---------------------------------------
+;            Getch Wrappers            :
+;---------------------------------------
 
 doYNWait:
 ;Input: rdx -> String to wait for Y/N on.
 ;Output: CF=NC -> N
 ;        CF=CY -> Y
     push rdx
-    mov ah, 09h
-    int 21h
-    mov ah, 01h ;Get a char
-    int 21h
+    call printString
+    call getch
     cmp al, "y"
     je .yes
     cmp al, "Y"
@@ -640,3 +787,109 @@ doYNWait:
     pop rdx
     return
 
+doCRWait:
+;Input: rdx -> String to wait for CR on.
+;Output: Returns when CR encountered.
+    push rdx
+    call printString
+    call getch
+    cmp al, CR
+    pop rdx
+    jne doCRWait
+    return
+;---------------------------------------
+;            CTRL+C handler            :
+;---------------------------------------
+
+breakRoutine:
+;This subroutine is called by ^C
+;Prompts the user for what they want to do.
+    lea rdx, cancel
+    call doYNWait   ;If returns with CF=CY, exit! Else just redo operation!
+    jnc .breakReturnNoExit
+    call dosCrit1Exit   ;Exit the critical section since we are quitting
+    mov eax, 4C03h      ;Tell DOS to terminate with error level 3
+;Let DOS reclaim memory and handles allocated to us
+.breakReturnNoExit:
+    iretq   ;Redo the operation
+
+;---------------------------------------
+;             DOS wrappers             :
+;---------------------------------------
+getch:
+;Output: al = Char
+    mov eax, 0100h ;Get a char
+    int 21h
+    return
+putch:
+;Input: dl = Char
+    mov eax, 0200h
+    int 21h
+    return
+printString:
+;Input: rdx -> $ terminated string to print
+    mov eax, 0900h
+    int 21h
+    return
+
+checkBreak:
+;Checks if control C has been struck and triggers Int 23h.
+;21h/0Bh does a non-blocking check of the keyboard buffer status.
+;If there is a Ctrl+C waiting in buffer, it triggers Int 23h.
+;If the user then doesn't want to exit the program, it reenters 
+; the call to check the keyboard status which will just return 
+; if the buffer is full or empty.
+;If no Ctrl+C waiting in the buffer, it just return the keyboard status.
+    mov eax, 0B00h
+    int 21h
+    return
+
+exitOk:
+    mov eax, 4C00h
+    int 21h
+exitError:
+    mov eax, 4C04h
+    int 21h
+exitNoFormatFixed:
+    mov eax, 4C05h
+    int 21h
+
+readSector:
+;Input:
+;ecx = Number of sectors to read
+;rdx = Start LBA to read from
+    call checkBreak
+    mov al, byte [fmtDrive]     ; Always read from fmtDrive
+    mov rbx, qword [bufferArea] ; Memory Buffer address to read from
+    int 25h
+    pop rax ;Pop old flags into rax
+    return
+writeSector:
+;Input:
+;ecx = Number of sectors to write
+;rdx = Start LBA to write to
+    call checkBreak
+    call writeStatusUpdate      ; Update the percentage done message!
+    mov al, byte [fmtDrive]     ; Always write to fmtDrive
+    mov rbx, qword [bufferArea] ; Memory Buffer address to read from
+    inc qword [secWritten]  ;Always inc even if failed. Bad sectors get marked.
+    int 26h
+    pop rax ;Pop old flags into rax
+    return
+
+dosCrit1Enter:
+    mov byte [inCrit], -1   ;Entering a DOS level 1 critical section
+    push rax 
+    mov eax, 8001h
+    int 2ah
+    pop rax
+    return
+dosCrit1Exit:
+    test byte [inCrit], -1  ;If we are not in a critical section, just return
+    retz
+    push rax 
+    mov eax, 8101h          
+    int 2ah
+    pop rax
+    mov byte [inCrit], 0    ;Indicate we have exited the critical section
+    return

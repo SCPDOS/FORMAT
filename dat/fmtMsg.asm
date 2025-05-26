@@ -1,21 +1,34 @@
-;Messages go here
+;Error Messages go here
 badVerStr   db "Invalid DOS Version",CR,LF,"$"
 badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
-badRedir    db "Cannot Format Redir, Subst or Join Drives",CR,LF,"$"
+badNetDrv   db "Cannot FORMAT a Network drive",CR,LF,"$"
+badSubsDrv  db "Cannot FORMAT a SUBSTed drive",CR,LF,"$"
 badGeneric  db "Cannot Format Drive",CR,LF,"$"
 cancel      db "Are you sure you wish to abort formatting drive "
 cancelL     db "#?", CR,LF
             db "Doing so may result in an unusable volume. Y/N?",CR,LF,"$"
 badVolBig   db "Volume too large to format",CR,LF,"$"
 badSecSize  db "Invalid Medium Sector Size",CR,LF,"$"
-okFormat    db "Format complete",CR,LF,"$"
 currentFmt  db "Cannot format current drive",CR,LF,"$"
 badBtStrWr  db "Unable to write BOOT",CR,LF,"$"
+badFSInfoWr db "Unable to write FS Info",CR,LF,"$"
 badIOCTL    db "Error in IOCTL call",CR,LF,"$"
-
+badFATWr    db "Error writing FAT",CR,LF,"$"
+badDirWr    db "Error writing directory",CR,LF,"$"
 ;Removable device warning message
 fmtRemStr   db "Insert new Media for drive "
 fmtRemStrL  db "#: and strike ENTER when ready$"
 ;Hard drive warning message
-fmtHddStr   db "WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
-fmtHddStrL  db "#: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)?"
+fmtHddStr   db CR,LF,"WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
+fmtHddStrL  db "#: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)? $"
+
+crlfStr     db CR,LF,"$"
+
+fmtMsg      db "Formatting...",CR,LF,"$"
+fmtPcntMsg  db "% percent formatted...$"
+fmtPcntMsgL equ $ - fmtPcntMsg + 3 ;Add three for the max number of digits
+
+againStr    db "Format another (Y/N)? $"
+okFormat    db "Format complete",fmtPcntMsgL dup (SPC), CR,LF,"$" 
+badFmtFail  db "Format failure",fmtPcntMsgL dup (SPC), CR,LF,"$"
+

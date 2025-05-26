@@ -1,14 +1,14 @@
 ;IOCTL request header
 reqTable:
     istruc lbaParamsBlock
-        at .size,           db lbaParamsBlock_size
+        at .bSize,          db lbaParamsBlock_size
         at .bSpecFuncs,     db 1    ;Get info for current partition
         at .wDevFlgs,       dw 0
         at .wFSType,        dw 0
-        at .res,            dw 0
-        at .sectorSize,     dq 0
-        at .numSectors,     dq 0
-        at .startSector,    dq 0
+        at .wRes,           dw 0
+        at .qSectorSize,    dq 0
+        at .qNumSectors,    dq 0
+        at .qStartSector,   dq 0
     iend
 
 ;Data area here
@@ -16,7 +16,8 @@ fmtDrive    db -1       ;Drive we are operating on (0 based)
 inCrit      db 0        ;If not 0, in a critical section, must exit
 cdsPtr      dq 0        ;CDS ptr here
 bufferArea  dq 0        ;Ptr to the buffer area
-breakByte   db 0        ;Break state to reset when returning (We set break on)
+;HARDCODED TO BE QUICK FORMAT FOR NOW
+quickByte   db -1       ;If /Q, don't zero all sectors first. Set if /Q.
 ;Format Data here
 remDev      db 0        ;0 = Removable, -1 = Fixed
 fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
@@ -33,6 +34,12 @@ loaderPtr   dq 0        ;Point to the bootloader to use
 loaderBytes dw 0        ;Number of bytes to copy
 
 f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
+
+;Tracking vars, used only for updating the percentage message!
+secToWrite  dq 0        ;Number of sectors to write (neq numSectors if /Q set)
+secWritten  dq 0        ;Number of sectors written so far
+secPercent  db -1       ;The previous percentage (-1 not initialised)
+
 ;Tables
 ;Each row is 5 bytes, {DWORD, BYTE} with DWORD = diskSize, BYTE=secPerClusVal
 ;This table assumes a 512 byte sector (fair assumption) but we do a byte size
