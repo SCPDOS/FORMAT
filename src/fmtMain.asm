@@ -83,7 +83,8 @@ startFormat:
 .gotRemDev:
 ;Print the rem dev warning string
     lea rdx, fmtRemStr
-    call doCRWait
+    call printString
+    call getch  ;Any char will proceed us
 ;Now we set the bit in the parameter block to force a return of the
 ; physical parameters of the medium to reset any dodgy BPB values or
 ; purposefully restricting BPBs.
@@ -145,6 +146,9 @@ startFormat:
 ;Called with rsi pointing to the table entry
     mov al, byte [rsi + 4]  ;Get the sector per cluster value in al
     mov byte [secPerClust], al
+;Now we select the bootsector in the payload section
+    lea rbx, bootloader         ;Point to the FAT12/16 generic one
+    mov qword [loaderPtr], rbx  ;And store it. If FAT32, we will adjust below
     cmp byte [fatType], 2
     je .fat32
     lea rdi, genericBPB12
@@ -171,13 +175,9 @@ startFormat:
     call getVolumeID
     mov dword [rdi + bpb_size + extBs.volId], eax
     mov byte [bpbSize], gbs_size
-    lea rbx, qword [bootloader + bpb_size]
-    mov qword [loaderPtr], rbx 
-    movzx ecx, word [sectorSize]
-    sub ecx, bpb_size
-    mov word [loaderBytes], cx
     jmp .bpbReady
 .fat32:
+    add qword [loaderPtr], 200h
     lea rdi, genericBPB32
     mov al, byte [media]
     mov byte [rdi + bpb32.media], al
@@ -206,44 +206,37 @@ startFormat:
     call getVolumeID
     mov dword [rdi + bpb32_size + extBs.volId], eax
     mov byte [bpbSize], gbs32_size
-    lea rbx, qword [bootloader + 200h + bpb32_size]
-    mov qword [loaderPtr], rbx 
-    movzx ecx, word [sectorSize]
-    sub ecx, bpb32_size
-    mov word [loaderBytes], cx
 .bpbReady:
 ;Now the BPB is ready, save the pointer and now setup bootsector for writing
     mov qword [bpbPointer], rdi
     call prepPrintVals
-    movzx ebx, word [sectorSize] ;Get the sector size
+    movzx ebx, word [sectorSize] ;Get the sector size (divisible by 16 always)
     shr ebx, 4  ;Divide by 4 to get number of paragraphs
     mov eax, 4800h  ;Allocate
     int 21h
     jc badExitGen
     mov qword [bufferArea], rax ;Use this as the buffer
     cld ;Ensure string ops are done the right way
-    mov rdi, rax
-    xor eax, eax
-    movzx ecx, word [sectorSize]    ;Get num of bytes and div by 8 for qwords
-    shr ecx, 3
-    push rdi
-    rep stosq   ;Zero the data area
-    pop rdi
-    mov rsi, qword [bpbPointer]
-    movzx ecx, byte [bpbSize]
-    rep movsb
-;The attached bootloader has a FAT12 or FAT32 BPB, skip em
+    mov rdi, rax    ;Point rdi to the buffer
+;Copy the attached bootloader into the sector buffer
     mov rsi, qword [loaderPtr]
-    movzx ecx, word [loaderBytes]
-    rep movsb   ;Copy the bootsector over
+    shl ebx, 4  ;Convert ebx back into bytes from paragraphs
+    mov ecx, ebx    
+    rep movsb   ;Copy the bootsector into the sector buffer
+    mov rdi, rax    ;Return rdi to the head of the buffer again
+    add rdi, 11     ;Point rdi to the BPB in the sector
+    mov rsi, qword [bpbPointer]
+    movzx ecx, byte [bpbSize]   ;Now copy the bpb
+    rep movsb
     mov rbx, qword [bufferArea] ;rbx = Memory Buffer address to read from
     mov byte [rbx + 509], 0 ;Make the disk not bootable
     mov word [rbx + 510], 0AA55h
-    breakpoint
+
     lea rdx, fmtMsg     ;Now we are about to write, print this message
     call printString
-
     call dosCrit1Enter
+    call setDriveAccess ;Enable drive access now!
+
     mov ecx, 1      ;ecx = Number of sectors to write
     xor edx, edx    ;rdx = Start LBA to write to
     push rcx
@@ -254,12 +247,11 @@ startFormat:
     jc badBtSctrExit
     cmp byte [fatType], 2  ;If not 2 (FAT32), skip backup bootsector
     jne syncParams
-    ;Now we write the backup BPB too at sector 6
+;Now we write the backup BPB too at sector 6
     mov ecx, 1  ;1 Sector to write
     mov edx, 6  ;At sector 6
     call writeSector
-    jnc syncParams
-
+    jc badBtSctrExit
 syncParams:
 ;NOW WE SYNC THE PARAMS BACK TO THE DRIVER. THIS SETS THE FORMAT BIT
 ; IN THE DRIVER HEADER, FORCES A BUILD BPB AND THUS, A REBUILT DPB.
@@ -267,22 +259,18 @@ syncParams:
 ;CUSTOM FORMATTING. MEDIA/PARTITIONS ARE FULLY FORMATTED.
     mov ch, 08h         ;Disk drive type IOCTL
     mov cl, 80h | 40h   ;Do LBA set parameters
-    mov eax, 440Dh      ;Generic IOCTL 
     movzx ebx, byte [fmtDrive]
+    inc ebx
     lea rdx, reqTable   ;Point to the table to fill in, bl has drive number 
+    mov eax, 440Dh      ;Generic IOCTL 
     int 21h
     jc badIOCTLExit
 createFAT:
     ;Now we create the FAT sectors.
     ;We write both copies one sector at a time interleaving them.
     mov esi, dword [fatSize]    ;Get the number of sectors to write, as counter
-    mov rdi, qword [bufferArea] ;Get the buffer area
-    mov rbx, rdi    ;Save the pointer in rbx
-    xor eax, eax
-    movzx ecx, word [sectorSize]
-    shr ecx, 3  ;Divide by 8
-    rep stosq   ;Store that many 0 qwords
-    mov rdi, rbx    ;Return rdi back to the start of the sector
+    call cleanBuffer
+    mov rdi, qword [bufferArea] ;Point rdi to the head of buffer area
     call writeFATStartSig   ;Write the first two clusters in the map
     mov ecx, 1  ;ecx = Number of sectors to write
     mov rdi, qword [bpbPointer] ;Get the ptr to the BPB
@@ -448,6 +436,10 @@ exitFormat:
 ;If we formatted on a remdev, ask if we wanna go again?
     lea rdx, againStr
     call doYNWait
+    pushfq
+    lea rdx, crlfStr
+    call printString    ;Output a new line!
+    popfq
     jnc exitOk  ;If not, we are done!
     lea rdx, crlfStr
     call printString    ;Output a new line!
@@ -787,23 +779,13 @@ doYNWait:
     pop rdx
     return
 
-doCRWait:
-;Input: rdx -> String to wait for CR on.
-;Output: Returns when CR encountered.
-    push rdx
-    call printString
-    call getch
-    cmp al, CR
-    pop rdx
-    jne doCRWait
-    return
 ;---------------------------------------
 ;            CTRL+C handler            :
 ;---------------------------------------
 
 breakRoutine:
 ;This subroutine is called by ^C
-;Prompts the user for what they want to do.
+;Prompts the user for what they want to do
     lea rdx, cancel
     call doYNWait   ;If returns with CF=CY, exit! Else just redo operation!
     jnc .breakReturnNoExit
@@ -811,6 +793,12 @@ breakRoutine:
     mov eax, 4C03h      ;Tell DOS to terminate with error level 3
 ;Let DOS reclaim memory and handles allocated to us
 .breakReturnNoExit:
+    push rax
+    push rdx
+    lea rdx, crlfStr
+    call printString
+    pop rdx
+    pop rax
     iretq   ;Redo the operation
 
 ;---------------------------------------
@@ -877,19 +865,36 @@ writeSector:
     pop rax ;Pop old flags into rax
     return
 
+setDriveAccess:
+;For now, I will simply force drive access on!
+    mov byte [accFlgPkt + accFlgBlk.bAccMode], -1
+    jmp short resetDriveAccess.cmn
+resetDriveAccess:
+    mov byte [accFlgPkt + accFlgBlk.bAccMode], 0
+.cmn:
+    lea rdx, accFlgPkt
+    mov ecx, 0847h  ;Set Access flag on disk drive
+    movzx ebx, byte [fmtDrive]
+    inc ebx ;Turn into a 1 based drive number
+    mov eax, 440Dh  ;Generic IOCTL
+    int 21h
+    return
+
+;Do not put the whole format through a critical section, that is insane!
+;Use a DOS networking extension to obtain a handle to the drive.
 dosCrit1Enter:
     mov byte [inCrit], -1   ;Entering a DOS level 1 critical section
-    push rax 
-    mov eax, 8001h
-    int 2ah
-    pop rax
+    ;push rax 
+    ;mov eax, 8001h
+    ;int 2ah
+    ;pop rax
     return
 dosCrit1Exit:
     test byte [inCrit], -1  ;If we are not in a critical section, just return
     retz
-    push rax 
-    mov eax, 8101h          
-    int 2ah
-    pop rax
+    ;push rax 
+    ;mov eax, 8101h          
+    ;int 2ah
+    ;pop rax
     mov byte [inCrit], 0    ;Indicate we have exited the critical section
     return

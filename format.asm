@@ -54,6 +54,11 @@ struc lbaParamsBlock
     .qStartSector   dq ?    ;Only the lower dword is valid here.
 endstruc
 
+struc accFlgBlk
+    .bSpecFuncs db ?    ;Must be 0
+    .bAccMode   db ?    ;Set if access allowed. Clear if not.
+endstruc
+
 %include "./src/fmtMain.asm"
 %include "./dat/fmtData.asm"
 %include "./dat/fmtMsg.asm"
