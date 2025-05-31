@@ -38,26 +38,24 @@ BITS 64
 %include "./inc/dosStruc.inc"
 %include "./inc/fatStruc.inc"
 
-struc lbaParamsBlock
-    .bSize          db ?
-    .bSpecFuncs     db ?    ;Bit[0] clear means get updated drive info. 
-                            ;Bit[0] set means get current drive info.
-                            ;Only meaningful on read. Set must have this as 0.
-    .wDevFlgs       dw ?    ;Only bits 0 and 1 are xmitted/read
-    .wFSType        dw ?    ;If one, it is a FAT type. Only valid on getlba.
-                            ; If one, can use CHS functions.
-    .wRes           dw ?
-    .qSectorSize    dq ?    ;Only the lower word is valid here
-    .qNumSectors    dq ?    ;Only the lower dword is valid here
-;The below is the absolute start sector of the partition. It is the 
-; partition at which to find the BPB.
-    .qStartSector   dq ?    ;Only the lower dword is valid here.
-endstruc
-
 struc accFlgBlk
     .bSpecFuncs db ?    ;Must be 0
     .bAccMode   db ?    ;Set if access allowed. Clear if not.
 endstruc
+
+struc chsParamsBlock
+    .bSpecFuncs db ?    ;Bit 0
+    .bDevType   db ?    ;5 if fixed, 7 otherwise
+    .wDevFlgs   dw ?    ;Only bits 0 and 1 are xmitted/read
+    .wNumCyl    dw ?    ;Num cylinders of media, preserved across calls
+    .bMedTyp    db ?    ;Perma 0 for us, meaningless. Reserved.
+    .deviceBPB  db 53 dup (?)   ;Full length with reserved bytes of BPB32
+    .TrackLayout dw (63*2 + 1) dup (?)  ;Full size table
+endstruc
+specFuncBPB equ 1<<0    ;Does BPB stuff
+;Only used in setparams requests. Ignored for getparams 
+specFuncTrk equ 1<<1    ;Set if just track layout cpy. Clear if set all.
+specFuncSec equ 1<<2    ;Set if all sectors samze size. Clear if not.
 
 %include "./src/fmtMain.asm"
 %include "./dat/fmtData.asm"

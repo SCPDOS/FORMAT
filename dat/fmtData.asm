@@ -1,20 +1,4 @@
 ;IOCTL request header
-reqTable:
-    istruc lbaParamsBlock
-        at .bSize,          db lbaParamsBlock_size
-        at .bSpecFuncs,     db 1    ;Get info for current partition
-        at .wDevFlgs,       dw 0
-        at .wFSType,        dw 0
-        at .wRes,           dw 0
-        at .qSectorSize,    dq 0
-        at .qNumSectors,    dq 0
-        at .qStartSector,   dq 0
-    iend
-accFlgPkt:
-    istruc accFlgBlk
-        at .bSpecFuncs, db 0
-        at .bAccMode,   db 0    ;If 0, disable access. If -1, enable.
-    iend
 ;Data area here
 fmtDrive    db -1       ;Drive we are operating on (0 based)
 inCrit      db 0        ;If not 0, in a critical section, must exit
@@ -30,7 +14,7 @@ numSectors  dq 0        ;Number of sectors in volume
 secPerClust db 0        ;Copy the sectors per cluster over
 fatSize     dd 0        ;FAT size (number of sectors per FAT)
 media       db 0F0h     ;Media type (F0h or F8h)
-bpbPointer  dq 0        ;Pointer to the BPB we will use
+bpbPointer  dq 0        ;Pointer to the buffer for the BPB
 bpbSize     db 0        ;Size of the BPB
 hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
 
@@ -85,7 +69,7 @@ genericBPB12:
     at .secPerTrk,   dw 0012h        ;18 Sectors per track
     at .numHeads,    dw 0002h        ;2 Heads
     at .hiddSec,     dd -1           ;No hidden sectors on removable
-    at .totSec32,    dd 0            ;Not a FAT32 BPB '
+    at .totSec32,    dd 0            ;Not a FAT32 BPB
     iend
     istruc extBs 
     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
@@ -154,3 +138,85 @@ genericBPB32:
     at .filSysType,     db 'FAT32   '
     iend
 gbs32_size equ ($ - genericBPB32) + 11
+
+
+accFlgPkt:
+    istruc accFlgBlk
+        at .bSpecFuncs, db 0
+        at .bAccMode,   db 0    ;If 0, disable access. If -1, enable.
+    iend
+ioParams:
+    istruc chsParamsBlock
+    at .bSpecFuncs, db 4    ;Bit 0 = Dont lock bpb. Bit 2 = Sectors same size.
+    at .bDevType,   db 0    ;5 if fixed, 7 otherwise
+    at .wDevFlgs,   dw 0    ;Only bits 0 and 1 are xmitted/read
+    at .wNumCyl,    dw 63
+    at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
+    at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
+    at .TrackLayout,    dw 63
+;Each row is a pair of words:
+;   dw Sector number, Sector size
+    dw 1, 200h
+    dw 2, 200h
+    dw 3, 200h
+    dw 4, 200h
+    dw 5, 200h
+    dw 6, 200h
+    dw 7, 200h
+    dw 8, 200h
+    dw 9, 200h
+    dw 10, 200h
+    dw 11, 200h
+    dw 12, 200h
+    dw 13, 200h
+    dw 14, 200h
+    dw 15, 200h
+    dw 16, 200h
+    dw 17, 200h
+    dw 18, 200h
+    dw 19, 200h
+    dw 20, 200h
+    dw 21, 200h
+    dw 22, 200h
+    dw 23, 200h
+    dw 24, 200h
+    dw 25, 200h
+    dw 26, 200h
+    dw 27, 200h
+    dw 28, 200h
+    dw 29, 200h
+    dw 30, 200h
+    dw 31, 200h
+    dw 32, 200h
+    dw 33, 200h
+    dw 34, 200h
+    dw 35, 200h
+    dw 36, 200h
+    dw 37, 200h
+    dw 38, 200h
+    dw 39, 200h
+    dw 40, 200h
+    dw 41, 200h
+    dw 42, 200h
+    dw 43, 200h
+    dw 44, 200h
+    dw 45, 200h
+    dw 46, 200h
+    dw 47, 200h
+    dw 48, 200h
+    dw 49, 200h
+    dw 50, 200h
+    dw 51, 200h
+    dw 52, 200h
+    dw 53, 200h
+    dw 54, 200h
+    dw 55, 200h
+    dw 56, 200h
+    dw 57, 200h
+    dw 58, 200h
+    dw 59, 200h
+    dw 60, 200h
+    dw 61, 200h
+    dw 62, 200h
+    dw 63, 200h
+    iend
