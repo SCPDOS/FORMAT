@@ -91,10 +91,12 @@ startFormat:
     lea rdx, crlfStr
     call printString
 ;Now request IOCTL to give medium parameters
-    mov eax, ~specFuncBPB   ;Get bpb from disk
+;Get from BPB as this should be synced with disk (this is to handle ufmtd media).
+;Hence, don't hit the disk (also this protects if the user has overwritten 
+; sector 0 somehow)
+    mov eax, specFuncBPB
     call getBpb
     jc badIOCTLExit
-    breakpoint
 ;Setup pointer to the BPB we will be using to report format
     lea rdi, qword [rdx + chsParamsBlock.deviceBPB] ;Point to BPB
     mov qword [bpbPointer], rdi ;Store this as the BPB buffer pointer
@@ -161,7 +163,6 @@ startFormat:
     mov qword [loaderPtr], rbx  ;And store it. If FAT32, we will adjust below
     cmp byte [fatType], 2
     je .fat32
-    breakpoint
     lea rsi, genericBPB12
     lea rdi, genericBPB16
     cmp byte [fatType], 1
