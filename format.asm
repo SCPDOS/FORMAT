@@ -52,10 +52,11 @@ struc chsParamsBlock
     .deviceBPB  db 53 dup (?)   ;Full length with reserved bytes of BPB32
     .TrackLayout dw (63*2 + 1) dup (?)  ;Full size table
 endstruc
-specFuncBPB equ 1<<0    ;Does BPB stuff
-;Only used in setparams requests. Ignored for getparams 
+specFuncBPB equ 1<<0    ;In set, locks the BPB. In get, rets backup bpb
+;In setBpb, set if we want to lock bpb. clear to unlock
+;Below only used in setparams requests. Ignored for getparams 
 specFuncTrk equ 1<<1    ;Set if just track layout cpy. Clear if set all.
-specFuncSec equ 1<<2    ;Set if all sectors samze size. Clear if not.
+specFuncSec equ 1<<2    ;Set if all sectors same size. Clear if not.
 
 %include "./src/fmtMain.asm"
 %include "./dat/fmtData.asm"

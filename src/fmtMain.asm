@@ -91,12 +91,8 @@ startFormat:
     lea rdx, crlfStr
     call printString
 ;Now request IOCTL to give medium parameters
-    mov ecx, 0860h         ;Disk drive type IOCTL, get FAT parameters
-    lea rdx, ioParams   ;Point to the table to fill in
-    movzx ebx, byte [fmtDrive]    ;0 based number
-    inc ebx         ;Needs to be a 1 based number for the genioctl call
-    mov eax, 440Dh  ;Generic IOCTL call to the disk subsystem
-    int 21h
+    mov eax, ~specFuncBPB   ;Get bpb from disk
+    call getBpb
     jc badIOCTLExit
     breakpoint
 ;Setup pointer to the BPB we will be using to report format
@@ -165,17 +161,18 @@ startFormat:
     mov qword [loaderPtr], rbx  ;And store it. If FAT32, we will adjust below
     cmp byte [fatType], 2
     je .fat32
+    breakpoint
     lea rsi, genericBPB12
     lea rdi, genericBPB16
     cmp byte [fatType], 1
-;Now we copy the correct generic bpb into the bpb buffer and modify it
+;Now we copy the correct generic bpb into the CHS IOCTL param block
     cmove rsi, rdi  ;Use FAT16 BPB if FAT16 volume
     mov ecx, bpb_size
     mov byte [bpbSize], cl
     mov rdi, qword [bpbPointer]
-    push rsi
+    push rdi    ;Save ptr to the bpb in the param block
     rep movsb   ;Copy the correct generic BPB into the bpb buffer
-    pop rdi     ;Point rdi to the copy of the generic BPB
+    pop rdi     ;Point rdi back to the bpb field in the param block
     mov al, byte [media]
     mov byte [rdi + bpb.media], al
     mov eax, dword [hiddSector]
@@ -184,8 +181,15 @@ startFormat:
     mov word [rdi + bpb.bytsPerSec], ax
     mov al, byte [secPerClust]
     mov byte [rdi + bpb.secPerClus], al
-    mov ax, word [numSectors]
+    mov rax, qword [numSectors]
+    test eax, 0FFFFh
+    jnb .largeSectors
     mov word [rdi + bpb.totSec16], ax
+    jmp short .sectorsOK
+.largeSectors:
+    mov word [rdi + bpb.totSec16], 0
+    mov dword [rdi + bpb.totSec32], eax
+.sectorsOK:
     call computeFATSize
     mov word [rdi + bpb.FATsz16], ax
     movzx eax, ax
@@ -198,9 +202,9 @@ startFormat:
     mov byte [bpbSize], cl
     lea rsi, genericBPB32
     mov rdi, qword [bpbPointer]
-    push rsi
+    push rdi    ;Save ptr to the bpb in the param block
     rep movsb   ;Copy the correct generic BPB into the bpb buffer
-    pop rdi     ;Point rdi to the copy of the generic BPB
+    pop rdi     ;Point rdi back to the bpb field in the param block
     mov al, byte [media]
     mov byte [rdi + bpb32.media], al
     mov eax, dword [hiddSector]
@@ -210,6 +214,7 @@ startFormat:
     mov al, byte [secPerClust]
     mov byte [rdi + bpb32.secPerClus], al
     mov eax, dword [numSectors]
+;    mov word [rdi + bpb32.totSec16], 0 ;Already 0 in the copied version
     mov dword [rdi + bpb32.totSec32], eax
     call computeFATSize
     mov dword [rdi + bpb32.FATsz32], eax
@@ -247,21 +252,9 @@ startFormat:
     mov byte [rbx + 509], 0 ;Make the disk not bootable
     mov word [rbx + 510], 0AA55h
 ;Now sync the new BPB with the driver
-syncParams:
-;NOW WE SYNC THE PARAMS BACK TO THE DRIVER. THIS SETS THE FORMAT BIT
-; IN THE DRIVER HEADER, FORCES A BUILD BPB AND THUS, A REBUILT DPB.
-    breakpoint
-    lea rdx, ioParams   ;Point to the table to fill in, bl has drive number 
-    mov ecx, 0840h         ;Disk drive type IOCTL, set FAT parameters
-    movzx ebx, byte [fmtDrive]
-    inc ebx
-    mov eax, 440Dh      ;Generic IOCTL 
-    int 21h
-    jnc proceedFormat
-;Here we have to disable access to the drive now since we have ruined
-; the drivers' internal BPB
-    call resetDriveAccess
-    jmp badIOCTLExit
+    mov eax, specFuncBPB ;Lock the BPB for the update
+    call syncBpb
+    jc badIOCTLExit
 proceedFormat:
     lea rdx, fmtMsg     ;Now we are about to write, print this message
     call printString
@@ -270,22 +263,29 @@ proceedFormat:
 
     mov ecx, 1      ;ecx = Number of sectors to write
     xor edx, edx    ;rdx = Start LBA to write to
-    push rcx
-    push rdx
     call writeSector
-    pop rdx
-    pop rcx
     jc badBtSctrExit
     cmp byte [fatType], 2  ;If not 2 (FAT32), skip backup bootsector
-    jne createFAT
+    jne writeFat
 ;Now we write the backup BPB too at sector 6
     mov ecx, 1  ;1 Sector to write
     mov edx, 6  ;At sector 6
     call writeSector
-    jc badBtSctrExit
-createFAT:
-    ;Now we create the FAT sectors.
-    ;We write both copies one sector at a time interleaving them.
+    jnc writeFat
+;If something goes wrong writing the backup, set the backup bootsector 
+; to sector 0 as the standard allows this and proceed.
+    mov rdx, qword [bpbPointer]  ;Get the loader addr
+    mov word [rbx + bpb32.BkBootSec], 0    ;Set the backup sector to 0
+    mov ecx, 1      ;ecx = Number of sectors to write
+    xor edx, edx    ;rdx = Start LBA to write to
+    call writeSector
+    jc badBtSctrExit   ;If this fails, it means bs is being dodgy. Fail!
+writeFat:
+    mov eax, ~specFuncBPB    ;Unlock the BPB
+    call syncBpb    ;Finish by syncing the BPB again
+    jc badIOCTLExit
+;Now we create the FAT sectors.
+;We write both copies one sector at a time interleaving them.
     mov esi, dword [fatSize]    ;Get the number of sectors to write, as counter
     call cleanBuffer
     mov rdi, qword [bufferArea] ;Point rdi to the head of buffer area
@@ -314,7 +314,7 @@ createFAT:
     mov qword [rdi], 0  ;Overwrite the FAT reserved cluster markers
     mov dword [rdi + 8], 0  ;Overwrite potential additional FAT32 data
     dec esi ;Decrement the number of fat sectors left to count
-.fatFillLoop:
+fatFillLoop:
     sub edx, eax    ;Come back to the first FAT copy
     inc edx ;Goto next sector
     mov ecx, 1
@@ -336,7 +336,7 @@ createFAT:
     pop rax
     jc badFATExit
     dec esi
-    jnz .fatFillLoop
+    jnz fatFillLoop
     ;Fall through once done with FAT
 rootDirectory:
     ;FAT12 and 16 are simple, FAT32 is a bit more complex
@@ -721,6 +721,7 @@ computeFATSize:
 ;----------------------------------------
 ;If we need "Format failed" printed, print before jumping here
 badBtSctrExit:
+    call restoreBpb     ;Handle BPB driver state restore
     lea rdx, badFmtFail
     call printString
     lea rdx, badBtStrWr 
@@ -821,6 +822,45 @@ breakRoutine:
 ;---------------------------------------
 ;             DOS wrappers             :
 ;---------------------------------------
+restoreBpb:
+;Gets the BPB from the bootsector again to restore the driver state.
+    mov eax, specFuncBPB    ;Get the backup bpb (which is old prev bpb)
+    call getBpb
+    jnc .gotBpb
+.bad:
+;If we cant even get the BS anymore, lock drive (if fixed).
+    test byte [remDev], -1
+    retz
+    call resetDriveAccess
+    return
+.gotBpb:
+;Now sync it back
+    mov eax, specFuncBPB
+    call syncBpb
+    mov eax, ~specFuncBPB
+    call syncBpb
+    return
+
+getBpb:
+;Gets the BPB from the bootsector into the buffer
+;Input: = al[0] = Set if we return backup bpb. Clear if get from disk.
+    mov ecx, 0860h         ;Disk drive type IOCTL, get FAT parameters
+    jmp short syncBpb.cmn
+syncBpb:
+;Input: al[0] = Set if to lock bpb. Clear if to unlock bpb.
+;Output: Returns if ok. Doesn't return if something went wrong.
+;       Handles errors internally and exits.
+    mov ecx, 0840h          ;Disk drive type IOCTL, set FAT parameters
+    or eax, specFuncSec     ;We only format media to all sectors equal size
+.cmn:
+    lea rdx, ioParams       ;Point to parameter block
+    mov byte [rdx + chsParamsBlock.bSpecFuncs], al
+    movzx ebx, byte [fmtDrive]
+    inc ebx
+    mov eax, 440Dh      ;Generic IOCTL 
+    int 21h
+    return
+
 getch:
 ;Output: al = Char
     mov eax, 0100h ;Get a char
