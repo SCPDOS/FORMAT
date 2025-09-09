@@ -782,14 +782,12 @@ doYNWait:
     push rdx
     call printString
     call getch
-    cmp al, "y"
+    movzx edx, al
+    mov eax, 6523h  ;Zeros upper word of lower dword
+    int 21h
+    cmp eax, 1
+    jb .no
     je .yes
-    cmp al, "Y"
-    je .yes
-    cmp al, "n"
-    je .no
-    cmp al, "N"
-    je .no
     pop rdx
     jmp short breakRoutine
 .yes:
@@ -804,20 +802,32 @@ doYNWait:
 
 breakRoutine:
 ;This subroutine is called by ^C
-;Prompts the user for what they want to do
+;Prompts the user for what they want to do.
+;Preserve registers across call.
+;
+;We always return IRETQ which means we always execute the 
+; function code that we return to DOS in eax. Unless we wish
+; to terminate, we just re-attempt the function that was 
+; ^C-ed.
+;
+    breakpoint
+    push rdx
+    push rax
     lea rdx, cancel
     call doYNWait   ;If returns with CF=CY, exit! Else just redo operation!
     jnc .breakReturnNoExit
     call dosCrit1Exit   ;Exit the critical section since we are quitting
+    pop rax
     mov eax, 4C03h      ;Tell DOS to terminate with error level 3
+    push rax
 ;Let DOS reclaim memory and handles allocated to us
 .breakReturnNoExit:
-    push rax
-    push rdx
     lea rdx, crlfStr
     call printString
-    pop rdx
+    mov dl, LF
+    call putch
     pop rax
+    pop rdx
     iretq   ;Redo the operation
 
 ;---------------------------------------

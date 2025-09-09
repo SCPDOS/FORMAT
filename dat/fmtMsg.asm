@@ -20,7 +20,7 @@ fmtRemStrL  db "#:",CR,LF,"and strike ENTER when ready$"
 fmtHddStr   db CR,LF,"WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
 fmtHddStrL  db "#: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)? $"
 ;CTRL+C message
-cancel      db "Are you sure you wish to abort formatting drive "
+cancel      db CR,LF,"Are you sure you wish to abort formatting drive "
 cancelL     db "#?", CR,LF
             db "Doing so may result in an unusable volume. Y/N?$"
 
