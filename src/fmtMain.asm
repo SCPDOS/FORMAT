@@ -75,11 +75,7 @@ startFormat:
 ;Print the Hard Drive Partition warning string.
     lea rdx, fmtHddStr
     call doYNWait
-    pushfq
-    lea rdx, crlfStr
-    call printString
-    popfq
-    jnc exitNoFormatFixed   ;CF=NC means don't proceed
+    jc exitNoFormatFixed   ;CF=CY means no, don't proceed.
     jmp short .getDrvParams
 .gotRemDev:
 ;Print the rem dev warning string
@@ -99,7 +95,7 @@ startFormat:
     jc badIOCTLExit
 ;Setup pointer to the BPB we will be using to report format
     lea rdi, qword [rdx + chsParamsBlock.deviceBPB] ;Point to BPB
-    mov qword [bpbPointer], rdi ;Store this as the BPB buffer pointer
+    mov qword [bpbPtr], rdi ;Store this as the BPB buffer pointer
 ;Now setup internal vars
 ;Ensure that we always set the number of FATs to 2
     mov byte [rdi + bpb.numFATs], 2
@@ -123,7 +119,35 @@ startFormat:
     jc badExitGen
     mov qword [bufferArea], rax ;Use this space as IO buffer
     call cleanBuffer
-;Now we select the FAT based on the size of the volume
+;Now we select the FAT based on the size of the volume.
+;If a hard drive, it is automatically a FAT 16 or 32 media.
+fatSelect:
+    mov byte [fatType], 0   ;Init fatType to be 0, FAT 12
+    test byte [remDev], -1
+    jnz .notFat12
+;If removable, check media byte.
+; If media byte known (F9h-FFh), we trust the driver data as these
+; come from tables we know to be FAT12 OK.
+; If media byte F0h, we again treat this as a marker to trust whatever 
+; the driver gave us but we check FAT12 compliance.
+;   If F0h volume compliant, we setup for FAT12.
+; Else, use FAT16.
+    cmp byte [media], 0F9h
+    ja .medOk
+    cmp byte [media], 0F0h
+    jne .notFat12
+;Now we check if the number of clusters on this volume is for FAT12. If so,
+; we are ok. Else, we do FAT 16.
+    call computeFAT ;If returns ecx = 0, we use FAT12!
+    test ecx, ecx
+    jnz .notFat12
+.medOk:
+;Here we have a valid FAT 12 bpb given by the driver.
+    lea rsi, qword [secPerClust - 4]    ;Point rsi four bytes before this
+    jmp short .medFound
+.notFat12:
+;Here for FAT 16 or 32 entries.
+    inc byte [fatType]  ;Start by noting we are at least FAT 16
     movzx ebx, word [sectorSize]
     mov rax, qword [numSectors] ;Get the number of sectors in rax
     mul rbx         ;Multiply to get number of bytes on volume in rax
@@ -131,12 +155,10 @@ startFormat:
     cmp rax, rbx
     jnb badVolExit
     xor ebx, ebx
-    mov byte [fatType], 0   ;Start by saying it must be FAT12
     mov ecx, 4  ;4 entries in the fat16table without the first entry
     lea rsi, fat16ClusterTable
     cmp eax, dword [rsi]
     jbe .medFound   ;Here we need to build a custom BPB for this device. 
-    inc byte [fatType]  ;Make now FAT 16
     add rsi, 5  ;Goto next entry    
 .fat16Lp:
     mov ebx, dword [rsi]    ;Clears upper 32 bytes of ebx
@@ -155,14 +177,14 @@ startFormat:
     jnz .fat32Lp
     jmp badVolExit
 .medFound:
-;Called with rsi pointing to the table entry
-    mov al, byte [rsi + 4]  ;Get the sector per cluster value in al
-    mov byte [secPerClust], al
 ;Now we select the bootsector in the payload section
+;rsi points to the table entry
     lea rbx, bootloader         ;Point to the FAT12/16 generic one
     mov qword [loaderPtr], rbx  ;And store it. If FAT32, we will adjust below
     cmp byte [fatType], 2
     je .fat32
+    mov al, byte [rsi + 4]  ;Get the sector per cluster value in al
+    mov byte [secPerClust], al
     lea rsi, genericBPB12
     lea rdi, genericBPB16
     cmp byte [fatType], 1
@@ -170,7 +192,7 @@ startFormat:
     cmove rsi, rdi  ;Use FAT16 BPB if FAT16 volume
     mov ecx, bpb_size
     mov byte [bpbSize], cl
-    mov rdi, qword [bpbPointer]
+    mov rdi, qword [bpbPtr]
     push rdi    ;Save ptr to the bpb in the param block
     rep movsb   ;Copy the correct generic BPB into the bpb buffer
     pop rdi     ;Point rdi back to the bpb field in the param block
@@ -183,7 +205,7 @@ startFormat:
     mov al, byte [secPerClust]
     mov byte [rdi + bpb.secPerClus], al
     mov rax, qword [numSectors]
-    test eax, 0FFFFh
+    cmp eax, 0FFFFh
     jnb .largeSectors
     mov word [rdi + bpb.totSec16], ax
     jmp short .sectorsOK
@@ -195,14 +217,16 @@ startFormat:
     mov word [rdi + bpb.FATsz16], ax
     movzx eax, ax
     mov dword [fatSize], eax
-    jmp short .bpbReady
+    jmp .bpbReady
 .fat32:
+    mov al, byte [rsi + 8]  ;Get the sector per cluster value in al
+    mov byte [secPerClust], al
     add qword [loaderPtr], 200h
 ;Copy the generic FAT32 bpb into the bpb buffer and modify it
     mov ecx, bpb32_size
     mov byte [bpbSize], cl
     lea rsi, genericBPB32
-    mov rdi, qword [bpbPointer]
+    mov rdi, qword [bpbPtr]
     push rdi    ;Save ptr to the bpb in the param block
     rep movsb   ;Copy the correct generic BPB into the bpb buffer
     pop rdi     ;Point rdi back to the bpb field in the param block
@@ -229,7 +253,9 @@ startFormat:
     mov word [rdi + bpb32.numHeads],  0FFh
     mov dword [rdi + bpb32.RootClus], 2
 .bpbReady:
-;Now setup bootsector for writing
+;Now setup bootsector for writing.
+;Entered with rsi -> extBS to write to
+    push rsi    ;Save the ptr to the extBS to use on stack
     call prepPrintVals
     mov rbx, qword [bufferArea]    
     mov rdi, rbx    ;Point rdi to the buffer
@@ -239,17 +265,20 @@ startFormat:
     rep movsb   ;Copy the bootsector into the sector buffer
 ;Now copy the accurate BPB into the bootsector
     lea rdi, qword [rbx + 11]    ;Point rdi to the BPB in the sector
-    mov rsi, qword [bpbPointer]
+    mov rsi, qword [bpbPtr]
     movzx ecx, byte [bpbSize]   ;Now copy the bpb
-    rep movsb   ;moves rdi to start of extended BPB area of the bootsector
-;Finally, now that the bootsector is ready, setup the extended BPB fields.
-    mov al, byte [remDev]
-    and al, 80h ;Save only bit 7
-    mov byte [rdi + extBs.drvNum], al
-    call getVolumeID    ;Gets a fresh ID in eax
-    mov dword [rdi + extBs.volId], eax
-;Now make the bootsector not bootable!
-    mov rbx, qword [bufferArea] ;rbx = Memory Buffer address to read from
+    rep movsb
+;Now setup the extended BPB fields.
+    pop rsi ;Get back the extBS ptr to use
+    movzx eax, byte [remDev]
+    and eax, 80h ;Save only bit 7
+    mov word [rsi + extBs.drvNum], ax   ;Clear the reserved field too
+    call getVolumeID    ;Gets a fresh ID in eax (preserve rbx->bootsector)
+    mov dword [rsi + extBs.volId], eax
+;Now copy the extended BPB fields too!
+    mov ecx, extBs_size
+    rep movsb
+;Finally, make the bootsector not bootable!
     mov byte [rbx + 509], 0 ;Make the disk not bootable
     mov word [rbx + 510], 0AA55h
 ;Now sync the new BPB with the driver
@@ -275,7 +304,6 @@ proceedFormat:
     jnc writeFat
 ;If something goes wrong writing the backup, set the backup bootsector 
 ; to sector 0 as the standard allows this and proceed.
-    mov rdx, qword [bpbPointer]  ;Get the loader addr
     mov word [rbx + bpb32.BkBootSec], 0    ;Set the backup sector to 0
     mov ecx, 1      ;ecx = Number of sectors to write
     xor edx, edx    ;rdx = Start LBA to write to
@@ -292,7 +320,7 @@ writeFat:
     mov rdi, qword [bufferArea] ;Point rdi to the head of buffer area
     call writeFATStartSig   ;Write the first two clusters in the map
     mov ecx, 1  ;ecx = Number of sectors to write
-    mov rdi, qword [bpbPointer] ;Get the ptr to the BPB
+    mov rdi, qword [bpbPtr] ;Get the ptr to the BPB
     movzx edx, word [rdi + bpb.revdSecCnt]  ;Get the first sector past reserved
     push rdx
     push rsi
@@ -345,7 +373,7 @@ rootDirectory:
     je .fat32
     ;Here we compute the number of Root Dir sectors and sanitise them
     ;rdx should point to that sector now (since it works on FAT copy 2 last)
-    mov rbx, qword [bpbPointer]
+    mov rbx, qword [bpbPtr]
     movzx esi, word [rbx + bpb.rootEntCnt]  ;Get the number of 32 byte entries
     shl esi, 5  ;Convert into the number of bytes in root directory
     movzx eax, word [sectorSize]    ;Get the sector size
@@ -454,11 +482,7 @@ exitFormat:
 ;If we formatted on a remdev, ask if we wanna go again?
     lea rdx, againStr
     call doYNWait
-    pushfq
-    lea rdx, crlfStr
-    call printString    ;Output a new line!
-    popfq
-    jnc exitOk  ;If not, we are done!
+    jc exitOk  ;If CF=CY, we said no and we are done!
     lea rdx, crlfStr
     call printString    ;Output a new line!
     jmp startFormat.gotRemDev ;And prompt user to insert new media in drive :)
@@ -471,7 +495,7 @@ writeStatusUpdate:
     push rdx
     mov rax, qword [secWritten]
     mov ebx, 100
-    mul rax ;Multiply number of sectors by 100
+    mul rbx ;Multiply number of sectors by 100
     mov rbx, qword [secToWrite]
     xor edx, edx
     div rbx ;Get percentage of written sectors in rax (formally al)
@@ -593,7 +617,7 @@ cleanBuffer:
 
 prepPrintVals:
 ;Compute secToWrite and initialise secWritten and secPercent.
-    mov qword [secWritten], 0
+    mov qword [secWritten], 0   ;Initialised for when multiple formats
     mov byte [secPercent], -1
     test byte [quickByte], -1
     jnz .quick
@@ -606,7 +630,8 @@ prepPrintVals:
     mov qword [secToWrite], rax
     cmp byte [fatType], 2
     je .fat32
-    mov rsi, qword [bpbPointer]
+;Add the sectors for the root directory and single bootsector
+    mov rsi, qword [bpbPtr]
     movzx eax, word [rsi + bpb.rootEntCnt]  ;Number of 32 bit entries
     shl eax, 5  ;Get number of bytes in root dir
     movzx esi, word [rsi + bpb.bytsPerSec]
@@ -624,12 +649,13 @@ prepPrintVals:
     add eax, 4  ;Two BS + 2 FSINFO
     add qword [secToWrite], rax
     return
+
 writeFATStartSig:
 ;Writes the first two cluster blocks with the necessary signature
 ;Input: rdi -> Start of the FAT sector
     push rax
     push rbx
-    mov rbx, qword [bpbPointer]
+    mov rbx, qword [bpbPtr]
     movsx eax, byte [rbx + bpb.media]   ;Get the media byte, sign extend
     cmp byte [fatType], 1
     je .fat16
@@ -651,16 +677,64 @@ writeFATStartSig:
 getVolumeID:
 ;Uses the time to set a volume ID
 ;Output: eax = VolumeID
+;Preserves rbx!
+    push rbx
     mov eax, 2C00h     ;Get Time in cx:dx
     int 21h
     movzx ebx, dx
     movzx eax, cx
     shl ebx, 10h
     or eax, ebx
+    pop rbx
     return
 
+computeFAT:
+;Returns if FAT12/16/32 should be used for volume parameters input.
+;Output: ecx = 0 => FAT 12, ecx = 1 => FAT 16, ecx = 2 => FAT 32
+;All other regs preserved
+    push rax
+    push rdx
+    push rdi
+    mov rdi, [bpbPtr]   ;Get ptr to the returned bpb
+;Compute space taken by fats
+    movzx eax, word [rdi + bpb.FATsz16]
+    movzx ecx, byte [rdi + bpb.numFATs]
+    mul ecx ;Get number of sectors occupied by all the fat copies
+    add ax, word [rdi + bpb.revdSecCnt] ;Add the number of reserved sectors
+    add ax, word [rdi + bpb.rootEntCnt] ;Add the root dir sectors
+    push rax    ;Save the non-data space
+;Get the total number of sectors on the volume in eax
+    movzx eax, word [rdi + bpb.totSec16]
+    mov ecx, dword [rdi + bpb.totSec32]
+    test eax, eax
+    cmovz eax, ecx  ;Move ecx to to eax if eax is zero
+    pop rcx
+    sub eax, ecx    ;Get the data space only in eax.
+    movzx ecx, byte [rdi + bpb.secPerClus]
+    test ecx, ecx
+    jecxz .err  ;If this is zero, due to malformed field, escape. Use FAT16
+    xor edx, edx
+    div ecx         ;Get number of clusters in eax
+;Now setup the return value in ecx
+    mov ecx, 2  ;FAT 32 marker
+    cmp eax, fat16MaxClustCnt
+    jae .exit
+    dec ecx     ;FAT 16 marker
+    cmp eax, fat12MaxClustCnt
+    jae .exit
+    dec ecx     ;FAT 12 marker
+.exit:
+    pop rdi
+    pop rdx
+    pop rax
+    return
+.err:
+;To prevent a divide by 0 error!
+    dec ecx
+    jmp short .exit
+
 computeFATSize:
-; ;Works on the genericBPB in memory. Applies the following algorithm
+; Reads from the bpb in rdi. Applies the following algorithm
 ; RootDirSectors = ((BPB_RootEntCnt * 32) + (BPB_BytsPerSec – 1)) / BPB_BytsPerSec;
 ; TmpVal1 = DskSize – (BPB_ResvdSecCnt + RootDirSectors);
 ; TmpVal2 = (256 * BPB_SecPerClus) + BPB_NumFATs;
@@ -777,23 +851,23 @@ badExitCmn:
 
 doYNWait:
 ;Input: rdx -> String to wait for Y/N on.
-;Output: CF=NC -> N
-;        CF=CY -> Y
+;Output: CF=NC -> Y(es)
+;        CF=CY -> N(o)
+;Outputs a new line to indicate that input has been recieved.
     push rdx
     call printString
     call getch
     movzx edx, al
     mov eax, 6523h  ;Zeros upper word of lower dword
     int 21h
+    pop rdx
     cmp eax, 1
-    jb .no
-    je .yes
-    pop rdx
-    jmp short breakRoutine
-.yes:
-    stc
-.no:
-    pop rdx
+    ja doYNWait
+;Here we can trash rdx since are done with it!
+    pushfq
+    lea rdx, crlfStr
+    call printString    ;Output a new line!
+    popfq
     return
 
 ;---------------------------------------
@@ -810,20 +884,17 @@ breakRoutine:
 ; to terminate, we just re-attempt the function that was 
 ; ^C-ed.
 ;
-    breakpoint
     push rdx
     push rax
     lea rdx, cancel
-    call doYNWait   ;If returns with CF=CY, exit! Else just redo operation!
-    jnc .breakReturnNoExit
+    call doYNWait   ;If ret CF=NC, we said yes so exit! Else just redo op!
+    jc .noAbort
     call dosCrit1Exit   ;Exit the critical section since we are quitting
     pop rax
     mov eax, 4C03h      ;Tell DOS to terminate with error level 3
     push rax
 ;Let DOS reclaim memory and handles allocated to us
-.breakReturnNoExit:
-    lea rdx, crlfStr
-    call printString
+.noAbort:
     mov dl, LF
     call putch
     pop rax

@@ -14,7 +14,7 @@ numSectors  dq 0        ;Number of sectors in volume
 secPerClust db 0        ;Copy the sectors per cluster over
 fatSize     dd 0        ;FAT size (number of sectors per FAT)
 media       db 0F0h     ;Media type (F0h or F8h)
-bpbPointer  dq 0        ;Pointer to the buffer for the BPB
+bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
 bpbSize     db 0        ;Size of the BPB
 hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
 
@@ -28,6 +28,7 @@ secWritten  dq 0        ;Number of sectors written so far
 secPercent  db -1       ;The previous percentage (-1 not initialised)
 
 ;Tables
+;All data here is RO.
 ;Each row is 5 bytes, {DWORD, BYTE} with DWORD = diskSize, BYTE=secPerClusVal
 ;This table assumes a 512 byte sector (fair assumption) but we do a byte size
 ; comparison in format to eventually allow for other sized sectors
@@ -54,8 +55,41 @@ fat32ClusterTable:
     dq -1       ; Disk up to 2TB, 32K clusters
     db 64
 
-;Static BPBs here, fields set to -1 must be edited.
-;Fields with a preset value should NOT be touched.
+;Bpbs are for remdevs of 1.44Mb and 2.88Mb capacity.
+;We have these built-in so that if (when supported) /F:1.44 or /F:2.88
+; is selected, we can format to these standard values. 
+;bpb144Mb:
+;    istruc bpb
+;    at .bytsPerSec, dw 200h
+;    at .secPerClus, db 01h
+;    at .revdSecCnt, dw 0001h
+;    at .numFATs,    db 02h    
+;    at .rootEntCnt, dw 00E0h    
+;    at .totSec16,   dw 0B40h    
+;    at .media,      db 0F0h    
+;    at .FATsz16,    dw 0009h    
+;    at .secPerTrk,  dw 0012h    
+;    at .numHeads,   dw 0002h    
+;    at .hiddSec,    dd 0    
+;    at .totSec32,   dd 0     
+;    iend
+;bpb288Mb:
+;    istruc bpb
+;    at .bytsPerSec, dw 200h
+;    at .secPerClus, db 02h  ;To be FAT 12 OK, we need 2 sectors/clust
+;    at .revdSecCnt, dw 0001h
+;    at .numFATs,    db 02h
+;    at .rootEntCnt, dw 00E0h
+;    at .totSec16,   dw 1680h
+;    at .media,      db 0F0h
+;    at .FATsz16,    dw 0012h
+;    at .secPerTrk,  dw 0024h    
+;    at .numHeads,   dw 0002h    
+;    at .hiddSec,    dd 0    
+;    at .totSec32,   dd 0     
+;    iend
+
+;Generic BPBs here, fields set to -1 must be edited in the copy made.
 genericBPB12:
     istruc bpb
     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
