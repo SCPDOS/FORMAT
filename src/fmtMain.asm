@@ -848,12 +848,19 @@ badExitCmn:
 ;---------------------------------------
 ;            Getch Wrappers            :
 ;---------------------------------------
-
 doYNWait:
+;This does the below but also outputs a new line to 
+; indicate that input has been recieved.
+    call .doWait
+    pushfq
+    lea rdx, crlfStr
+    call printString    ;Output a new line!
+    popfq
+    return
+.doWait:
 ;Input: rdx -> String to wait for Y/N on.
 ;Output: CF=NC -> Y(es)
 ;        CF=CY -> N(o)
-;Outputs a new line to indicate that input has been recieved.
     push rdx
     call printString
     call getch
@@ -862,12 +869,7 @@ doYNWait:
     int 21h
     pop rdx
     cmp eax, 1
-    ja doYNWait
-;Here we can trash rdx since are done with it!
-    pushfq
-    lea rdx, crlfStr
-    call printString    ;Output a new line!
-    popfq
+    ja .doWait
     return
 
 ;---------------------------------------
@@ -887,7 +889,7 @@ breakRoutine:
     push rdx
     push rax
     lea rdx, cancel
-    call doYNWait   ;If ret CF=NC, we said yes so exit! Else just redo op!
+    call doYNWait       ;If ret CF=NC, we said yes so exit! Else just redo op!
     jc .noAbort
     call dosCrit1Exit   ;Exit the critical section since we are quitting
     pop rax
