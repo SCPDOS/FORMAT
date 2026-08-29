@@ -844,27 +844,27 @@
     12 00000008 3A05F4FFFFFF        <1>     cmp al, byte [.vNum] ;Version 1
     13 0000000E 7612                <1>     jbe .okVersion
     14 00000010 58                  <1>     pop rax
-    15 00000011 488D15FD0E0000      <1>     lea rdx, badVerStr
+    15 00000011 488D15FA0E0000      <1>     lea rdx, badVerStr
     16                              <1> .printExit:
     17 00000018 E8EE060000          <1>     call printString
-    18 0000001D E9A70B0000          <1>     jmp exitError
+    18 0000001D E9A40B0000          <1>     jmp exitError
     19                              <1> .okVersion:
     20                              <1> ;Check the passed argument is ok (flag in al)
     21 00000022 58                  <1>     pop rax
     22 00000023 3CFF                <1>     cmp al, -1
     23 00000025 7509                <1>     jnz .driveOk
     24                              <1> .badDrive:
-    25 00000027 488D15FD0E0000      <1>     lea rdx, badDrvLtr
+    25 00000027 488D15FA0E0000      <1>     lea rdx, badDrvLtr
     26 0000002E EBE8                <1>     jmp short .printExit
     27                              <1> .driveOk:
     28                              <1> ;Now fetch the drive we are working on
     29 00000030 418A505C            <1>     mov dl, byte [r8 + psp.fcb1] ;Get the fcb 1 based drvNum
     30 00000034 FECA                <1>     dec dl  ;Turn it into a 0 based number
-    31 00000036 8815540C0000        <1>     mov byte [fmtDrive], dl
+    31 00000036 8815510C0000        <1>     mov byte [fmtDrive], dl
     32 0000003C 80C241              <1>     add dl, "A"             ;Turn into a ASCII char for printing
-    33 0000003F 88150E110000        <1>     mov byte [cancelL], dl  ;Store for cancel string
-    34 00000045 881557100000        <1>     mov byte [fmtRemStrL], dl   ;And HDD/RemDev strings
-    35 0000004B 8815A2100000        <1>     mov byte [fmtHddStrL], dl
+    33 0000003F 88150B110000        <1>     mov byte [cancelL], dl  ;Store for cancel string
+    34 00000045 881554100000        <1>     mov byte [fmtRemStrL], dl   ;And HDD/RemDev strings
+    35 0000004B 88159F100000        <1>     mov byte [fmtHddStrL], dl
     36                              <1> ; Here we now hook ^C so that if the user calls ^C we restore DOS state
     37                              <1> ; (i.e. default drive and reactivate the drive if it is deactivated)
     38 00000051 488D1520060000      <1>     lea rdx, breakRoutine
@@ -877,49 +877,49 @@
     45 00000064 CD21                <1>     int 21h ;Get in rbx a ptr to list of lists
     46 00000066 4881C32A000000      <1>     add rbx, 2Ah    ;Point rbx to cdsHeadPtr
     47 0000006D 488B33              <1>     mov rsi, qword [rbx]    ;Get the ptr to the CDS array
-    48 00000070 0FB60D190C0000      <1>     movzx ecx, byte [fmtDrive]
+    48 00000070 0FB60D160C0000      <1>     movzx ecx, byte [fmtDrive]
     49 00000077 67E30B              <1>     jecxz .atCurrentCDS
     50                              <1> .walkCDSArray:
     51 0000007A 4881C65F000000      <1>     add rsi, cds_size
     52 00000081 FFC9                <1>     dec ecx
     53 00000083 75F5                <1>     jnz .walkCDSArray
     54                              <1> .atCurrentCDS: 
-    55 00000085 488935060C0000      <1>     mov qword [cdsPtr], rsi ;Save a ptr to the current CDS
+    55 00000085 488935030C0000      <1>     mov qword [cdsPtr], rsi ;Save a ptr to the current CDS
     56                              <1> ;Must be a valid drive do be formatted
     57 0000008C 66F746430040        <1>     test word [rsi + cds.wFlags], cdsValidDrive
     58 00000092 7493                <1>     jz startFormat.badDrive
     59                              <1> ;Cannot format a Redir drive for now (Will use the net redirector for this)
     60 00000094 66F746438080        <1>     test word [rsi + cds.wFlags], cdsRedirDrive | cdsRdirLocDrive
-    61 0000009A 0F85BA0B0000        <1>     jnz badNetExit
+    61 0000009A 0F85B70B0000        <1>     jnz badNetExit
     62                              <1> ;Cannot format a subst drive
     63 000000A0 66F746430010        <1>     test word [rsi + cds.wFlags], cdsSubstDrive
-    64 000000A6 0F85B70B0000        <1>     jnz badSubstExit
+    64 000000A6 0F85B40B0000        <1>     jnz badSubstExit
     65                              <1> ;Cannot format a joined drive
-    66 000000AC 66F74643[850F]      <1>     test word [rsi + cds.wFlags], badJoinDrv
-    67 000000B2 0F85B40B0000        <1>     jnz badJoinExit
+    66 000000AC 66F74643[820F]      <1>     test word [rsi + cds.wFlags], badJoinDrv
+    67 000000B2 0F85B10B0000        <1>     jnz badJoinExit
     68                              <1> ;Now attempt to ascertain if removable or not.
-    69 000000B8 0FB61DD10B0000      <1>     movzx ebx, byte [fmtDrive]    ;0 based number
+    69 000000B8 0FB61DCE0B0000      <1>     movzx ebx, byte [fmtDrive]    ;0 based number
     70 000000BF FFC3                <1>     inc ebx  ;Turn it into a 1 based number
     71 000000C1 B808440000          <1>     mov eax, 4408h  ;IOCTL, Get if removable or not. Should never fail
     72 000000C6 CD21                <1>     int 21h
-    73 000000C8 0F82710B0000        <1>     jc badIOCTLExit.alt ;Don't print format failed!
+    73 000000C8 0F826E0B0000        <1>     jc badIOCTLExit.alt ;Don't print format failed!
     74 000000CE 84C0                <1>     test al, al
     75 000000D0 7422                <1>     jz .gotRemDev
-    76 000000D2 800DE30B000008      <1>     or byte [media], 8      ;Turn to 0F8h
-    77 000000D9 C605CB0B0000FF      <1>     mov byte [remDev], -1   ;Indicate Fixed drive
+    76 000000D2 800DE00B000008      <1>     or byte [media], 8      ;Turn to 0F8h
+    77 000000D9 C605C80B0000FF      <1>     mov byte [remDev], -1   ;Indicate Fixed drive
     78                              <1> ;Print the Hard Drive Partition warning string.
-    79 000000E0 488D15DB0F0000      <1>     lea rdx, fmtHddStr
+    79 000000E0 488D15D80F0000      <1>     lea rdx, fmtHddStr
     80 000000E7 E8B5060000          <1>     call doYNWait
-    81 000000EC 0F82DE0A0000        <1>     jc exitNoFormatFixed   ;CF=CY means no, don't proceed.
+    81 000000EC 0F82DB0A0000        <1>     jc exitNoFormatFixed   ;CF=CY means no, don't proceed.
     82 000000F2 EB11                <1>     jmp short .getDrvParams
     83                              <1> .gotRemDev:
     84                              <1> ;Print the rem dev warning string
-    85 000000F4 488D158C0F0000      <1>     lea rdx, fmtRemStr
+    85 000000F4 488D15890F0000      <1>     lea rdx, fmtRemStr
     86 000000FB E80B060000          <1>     call printString
     87 00000100 E8F6050000          <1>     call getch  ;Any char will proceed us
     88                              <1> .getDrvParams:
     89                              <1> ;Print CRLF to signal remdev inserted/fixed disk warning accepted
-    90 00000105 488D157B100000      <1>     lea rdx, crlfStr
+    90 00000105 488D1578100000      <1>     lea rdx, crlfStr
     91 0000010C E8FA050000          <1>     call printString
     92                              <1> ;Now request IOCTL to give medium parameters
     93                              <1> ;Get from BPB as this should be synced with disk (this is to handle ufmtd media).
@@ -927,10 +927,10 @@
     95                              <1> ; sector 0 somehow)
     96 00000111 B801000000          <1>     mov eax, specFuncBPB
     97 00000116 E8B5050000          <1>     call getBpb
-    98 0000011B 0F82120B0000        <1>     jc badIOCTLExit
+    98 0000011B 0F820F0B0000        <1>     jc badIOCTLExit
     99                              <1> ;Setup pointer to the BPB we will be using to report format
    100 00000121 488D7A07            <1>     lea rdi, qword [rdx + chsParamsBlock.deviceBPB] ;Point to BPB
-   101 00000125 48893D910B0000      <1>     mov qword [bpbPtr], rdi ;Store this as the BPB buffer pointer
+   101 00000125 48893D8E0B0000      <1>     mov qword [bpbPtr], rdi ;Store this as the BPB buffer pointer
    102                              <1> 
    103                              <1> ;
    104                              <1> ;Now setup internal vars. Trust the returned BPB even for FAT12 floppies,
@@ -943,31 +943,31 @@
    111 0000012C C6470502            <1>     mov byte [rdi + bpb.numFATs], 2
    112 00000130 0FB71F              <1>     movzx ebx, word [rdi + bpb.bytsPerSec]
    113                              <1> ;TEMP: ONLY ALLOW FORMATTING ON "NORMAL" (512 byte sectors) MEDIA FOR NOW
-   114 00000133 66391D730B0000      <1>     cmp word [sectorSize], bx 
-   115 0000013A 0F85110B0000        <1>     jne badSecSizeExit
+   114 00000133 66391D700B0000      <1>     cmp word [sectorSize], bx 
+   115 0000013A 0F850E0B0000        <1>     jne badSecSizeExit
    116                              <1>     ;mov word [sectorSize], bx
    117                              <1> ;TEMP: END OF TEMP
    118 00000140 0FB64702            <1>     movzx eax, byte [rdi + bpb.secPerClus]  ;Store the reported secPerClus val
-   119 00000144 88056D0B0000        <1>     mov byte [secPerClust], al
+   119 00000144 88056A0B0000        <1>     mov byte [secPerClust], al
    120 0000014A 8B4711              <1>     mov eax, dword [rdi + bpb.hiddSec]
-   121 0000014D 8905730B0000        <1>     mov dword [hiddSector], eax
+   121 0000014D 8905700B0000        <1>     mov dword [hiddSector], eax
    122 00000153 0FB74708            <1>     movzx eax, word [rdi + bpb.totSec16]
    123 00000157 8B4F15              <1>     mov ecx, dword [rdi + bpb.totSec32]
    124 0000015A 85C0                <1>     test eax, eax   ;If totSec16 is 0, use totSec32
    125 0000015C 0F44C1              <1>     cmovz eax, ecx
-   126 0000015F 488905490B0000      <1>     mov qword [numSectors], rax
+   126 0000015F 488905460B0000      <1>     mov qword [numSectors], rax
    127                              <1> ;Allocate a sector sized memory block for IO. bx has sector size in bytes
    128 00000166 C1EB04              <1>     shr ebx, 4  ;Divide by 16 to get number of paragraphs
    129 00000169 B800480000          <1>     mov eax, 4800h  ;Allocate
    130 0000016E CD21                <1>     int 21h
-   131 00000170 0F82FF0A0000        <1>     jc badExitGen
-   132 00000176 4889051D0B0000      <1>     mov qword [pBuffer], rax ;Use this space as IO buffer
-   133 0000017D E8AE080000          <1>     call cleanBuffer
+   131 00000170 0F82FC0A0000        <1>     jc badExitGen
+   132 00000176 4889051A0B0000      <1>     mov qword [pBuffer], rax ;Use this space as IO buffer
+   133 0000017D E8AB080000          <1>     call cleanBuffer
    134                              <1> ;Now we select the FAT based on the size of the volume.
    135                              <1> ;If a hard drive, it is automatically a FAT 16 or 32 media.
    136                              <1> fatSelect:
-   137 00000182 C605230B000000      <1>     mov byte [fatType], fs_fat12   ;Init fatType to be FAT 12
-   138 00000189 F6051B0B0000FF      <1>     test byte [remDev], -1
+   137 00000182 C605200B000000      <1>     mov byte [fatType], fs_fat12   ;Init fatType to be FAT 12
+   138 00000189 F605180B0000FF      <1>     test byte [remDev], -1
    139 00000190 7524                <1>     jnz .notFat12
    140                              <1> ;If removable, check media byte.
    141                              <1> ; If media byte known (F9h-FFh), we trust the driver data as these
@@ -976,32 +976,32 @@
    144                              <1> ; the driver gave us but we check FAT12 compliance.
    145                              <1> ;   If F0h volume compliant, we setup for FAT12.
    146                              <1> ; Else, use FAT16.
-   147 00000192 803D230B0000F9      <1>     cmp byte [media], 0F9h
+   147 00000192 803D200B0000F9      <1>     cmp byte [media], 0F9h
    148 00000199 7712                <1>     ja .medOk
-   149 0000019B 803D1A0B0000F0      <1>     cmp byte [media], 0F0h
+   149 0000019B 803D170B0000F0      <1>     cmp byte [media], 0F0h
    150 000001A2 7512                <1>     jne .notFat12
    151                              <1> ;Now we check if the number of clusters on this volume is for FAT12. If so,
    152                              <1> ; we are ok. Else, we do FAT 16.
-   153 000001A4 E85C090000          <1>     call computeFAT ;If returns ecx = 0, we use FAT12!
+   153 000001A4 E859090000          <1>     call computeFAT ;If returns ecx = 0, we use FAT12!
    154 000001A9 85C9                <1>     test ecx, ecx
    155 000001AB 7509                <1>     jnz .notFat12
    156                              <1> .medOk:
    157                              <1> ;Here we have a valid FAT 12 bpb given by the driver.
-   158 000001AD 488D35FF0A0000      <1>     lea rsi, qword [secPerClust - 4]    ;Point rsi four bytes before this
+   158 000001AD 488D35FC0A0000      <1>     lea rsi, qword [secPerClust - 4]    ;Point rsi four bytes before this
    159 000001B4 EB75                <1>     jmp short .medFound
    160                              <1> .notFat12:
    161                              <1> ;Here for FAT 16 or 32 entries.
-   162 000001B6 FE05F00A0000        <1>     inc byte [fatType]  ;Start by noting we are at least FAT 16
-   163 000001BC 0FB71DEA0A0000      <1>     movzx ebx, word [sectorSize]
-   164 000001C3 488B05E50A0000      <1>     mov rax, qword [numSectors] ;Get the number of sectors in rax
+   162 000001B6 FE05ED0A0000        <1>     inc byte [fatType]  ;Start by noting we are at least FAT 16
+   163 000001BC 0FB71DE70A0000      <1>     movzx ebx, word [sectorSize]
+   164 000001C3 488B05E20A0000      <1>     mov rax, qword [numSectors] ;Get the number of sectors in rax
    165 000001CA 48F7E3              <1>     mul rbx         ;Multiply to get number of bytes on volume in rax
    166 000001CD 48BB00FEFFFFFF0100- <1>     mov rbx, 1FFFFFFFE00h ;If our volume is above 2Tb in size, abort
    166 000001D6 00                  <1>
    167 000001D7 4839D8              <1>     cmp rax, rbx
-   168 000001DA 0F83680A0000        <1>     jnb badVolExit
+   168 000001DA 0F83650A0000        <1>     jnb badVolExit
    169 000001E0 31DB                <1>     xor ebx, ebx
    170 000001E2 B904000000          <1>     mov ecx, 4  ;4 entries in the fat16table without the first entry
-   171 000001E7 488D35F90A0000      <1>     lea rsi, fat16ClusterTable
+   171 000001E7 488D35F60A0000      <1>     lea rsi, fat16ClusterTable
    172 000001EE 3B06                <1>     cmp eax, dword [rsi]
    173 000001F0 7639                <1>     jbe .medFound   ;Here we need to build a custom BPB for this device. 
    174 000001F2 4881C605000000      <1>     add rsi, 5  ;Goto next entry    
@@ -1012,7 +1012,7 @@
    179 00000200 4881C605000000      <1>     add rsi, 5
    180 00000207 FFC9                <1>     dec ecx
    181 00000209 75EE                <1>     jnz .fat16Lp
-   182 0000020B FE059B0A0000        <1>     inc byte [fatType]
+   182 0000020B FE05980A0000        <1>     inc byte [fatType]
    183 00000211 B904000000          <1>     mov ecx, 4
    184                              <1> .fat32Lp:
    185 00000216 483B06              <1>     cmp rax, qword [rsi]
@@ -1020,36 +1020,36 @@
    187 0000021B 4881C609000000      <1>     add rsi, 9
    188 00000222 FFC9                <1>     dec ecx
    189 00000224 75F0                <1>     jnz .fat32Lp
-   190 00000226 E91D0A0000          <1>     jmp badVolExit
+   190 00000226 E91A0A0000          <1>     jmp badVolExit
    191                              <1> .medFound:
    192                              <1> ;Now we select the bootsector in the payload section
    193                              <1> ;rsi points to the table entry
-   194 0000022B 488D1D16110000      <1>     lea rbx, bootloader         ;Point to the FAT12/16 generic one
-   195 00000232 48891D6A0A0000      <1>     mov qword [pBtLdr], rbx  ;And store it. If FAT32, we will adjust below
-   196 00000239 803D6C0A000002      <1>     cmp byte [fatType], fs_fat32
+   194 0000022B 488D1D13110000      <1>     lea rbx, bootloader         ;Point to the FAT12/16 generic one
+   195 00000232 48891D670A0000      <1>     mov qword [pBtLdr], rbx  ;And store it. If FAT32, we will adjust below
+   196 00000239 803D690A000002      <1>     cmp byte [fatType], fs_fat32
    197 00000240 0F8491000000        <1>     je .fat32
    198 00000246 8A4604              <1>     mov al, byte [rsi + 4]  ;Get the sector per cluster value in al
-   199 00000249 8805680A0000        <1>     mov byte [secPerClust], al
-   200 0000024F 488D35CE0A0000      <1>     lea rsi, genericBPB12
-   201 00000256 488D3DFA0A0000      <1>     lea rdi, genericBPB16
-   202 0000025D 803D480A000001      <1>     cmp byte [fatType], fs_fat16
+   199 00000249 8805650A0000        <1>     mov byte [secPerClust], al
+   200 0000024F 488D35CB0A0000      <1>     lea rsi, genericBPB12
+   201 00000256 488D3DF70A0000      <1>     lea rdi, genericBPB16
+   202 0000025D 803D450A000001      <1>     cmp byte [fatType], fs_fat16
    203                              <1> ;Now we copy the correct generic bpb into the CHS IOCTL param block
    204 00000264 480F44F7            <1>     cmove rsi, rdi  ;Use FAT16 BPB if FAT16 volume
    205 00000268 B919000000          <1>     mov ecx, bpb_size
-   206 0000026D 880D520A0000        <1>     mov byte [bpbSize], cl
-   207 00000273 488B3D430A0000      <1>     mov rdi, qword [bpbPtr]
+   206 0000026D 880D4F0A0000        <1>     mov byte [bpbSize], cl
+   207 00000273 488B3D400A0000      <1>     mov rdi, qword [bpbPtr]
    208 0000027A 57                  <1>     push rdi    ;Save ptr to the bpb in the param block
    209 0000027B F3A4                <1>     rep movsb   ;Copy the correct generic BPB into the bpb buffer
    210 0000027D 5F                  <1>     pop rdi     ;Point rdi back to the bpb field in the param block
-   211 0000027E 8A05380A0000        <1>     mov al, byte [media]
+   211 0000027E 8A05350A0000        <1>     mov al, byte [media]
    212 00000284 88470A              <1>     mov byte [rdi + bpb.media], al
-   213 00000287 8B05390A0000        <1>     mov eax, dword [hiddSector]
+   213 00000287 8B05360A0000        <1>     mov eax, dword [hiddSector]
    214 0000028D 894711              <1>     mov dword [rdi + bpb.hiddSec], eax
-   215 00000290 668B05160A0000      <1>     mov ax, word [sectorSize]
+   215 00000290 668B05130A0000      <1>     mov ax, word [sectorSize]
    216 00000297 668907              <1>     mov word [rdi + bpb.bytsPerSec], ax
-   217 0000029A 8A05170A0000        <1>     mov al, byte [secPerClust]
+   217 0000029A 8A05140A0000        <1>     mov al, byte [secPerClust]
    218 000002A0 884702              <1>     mov byte [rdi + bpb.secPerClus], al
-   219 000002A3 488B05050A0000      <1>     mov rax, qword [numSectors]
+   219 000002A3 488B05020A0000      <1>     mov rax, qword [numSectors]
    220 000002AA 3DFFFF0000          <1>     cmp eax, 0FFFFh
    221 000002AF 7306                <1>     jnb .largeSectors
    222 000002B1 66894708            <1>     mov word [rdi + bpb.totSec16], ax
@@ -1058,38 +1058,38 @@
    225 000002B7 66C747080000        <1>     mov word [rdi + bpb.totSec16], 0
    226 000002BD 894715              <1>     mov dword [rdi + bpb.totSec32], eax
    227                              <1> .sectorsOK:
-   228 000002C0 E898080000          <1>     call computeFATSize
+   228 000002C0 E895080000          <1>     call computeFATSize
    229 000002C5 6689470B            <1>     mov word [rdi + bpb.FATsz16], ax
    230 000002C9 0FB7C0              <1>     movzx eax, ax
-   231 000002CC 8905E6090000        <1>     mov dword [fatSize], eax
+   231 000002CC 8905E3090000        <1>     mov dword [fatSize], eax
    232 000002D2 E986000000          <1>     jmp .bpbReady
    233                              <1> .fat32:
    234 000002D7 8A4608              <1>     mov al, byte [rsi + 8]  ;Get the sector per cluster value in al
-   235 000002DA 8805D7090000        <1>     mov byte [secPerClust], al
-   236 000002E0 488105B80900000002- <1>     add qword [pBtLdr], 200h ;Go past the first bootsector in memory
+   235 000002DA 8805D4090000        <1>     mov byte [secPerClust], al
+   236 000002E0 488105B50900000002- <1>     add qword [pBtLdr], 200h ;Go past the first bootsector in memory
    236 000002E9 0000                <1>
    237                              <1> ;Copy the generic FAT32 bpb into the bpb buffer and modify it
    238 000002EB B935000000          <1>     mov ecx, bpb32_size
-   239 000002F0 880DCF090000        <1>     mov byte [bpbSize], cl
-   240 000002F6 488D358D0A0000      <1>     lea rsi, genericBPB32
-   241 000002FD 488B3DB9090000      <1>     mov rdi, qword [bpbPtr]
+   239 000002F0 880DCC090000        <1>     mov byte [bpbSize], cl
+   240 000002F6 488D358A0A0000      <1>     lea rsi, genericBPB32
+   241 000002FD 488B3DB6090000      <1>     mov rdi, qword [bpbPtr]
    242 00000304 57                  <1>     push rdi    ;Save ptr to the bpb in the param block
    243 00000305 F3A4                <1>     rep movsb   ;Copy the correct generic BPB into the bpb buffer
    244 00000307 5F                  <1>     pop rdi     ;Point rdi back to the bpb field in the param block
-   245 00000308 8A05AE090000        <1>     mov al, byte [media]
+   245 00000308 8A05AB090000        <1>     mov al, byte [media]
    246 0000030E 88470A              <1>     mov byte [rdi + bpb32.media], al
-   247 00000311 8B05AF090000        <1>     mov eax, dword [hiddSector]
+   247 00000311 8B05AC090000        <1>     mov eax, dword [hiddSector]
    248 00000317 894711              <1>     mov dword [rdi + bpb.hiddSec], eax
-   249 0000031A 668B058C090000      <1>     mov ax, word [sectorSize]
+   249 0000031A 668B0589090000      <1>     mov ax, word [sectorSize]
    250 00000321 668907              <1>     mov word [rdi + bpb32.bytsPerSec], ax
-   251 00000324 8A058D090000        <1>     mov al, byte [secPerClust]
+   251 00000324 8A058A090000        <1>     mov al, byte [secPerClust]
    252 0000032A 884702              <1>     mov byte [rdi + bpb32.secPerClus], al
-   253 0000032D 8B057C090000        <1>     mov eax, dword [numSectors]
+   253 0000032D 8B0579090000        <1>     mov eax, dword [numSectors]
    254                              <1> ;    mov word [rdi + bpb32.totSec16], 0 ;Already 0 in the copied version
    255 00000333 894715              <1>     mov dword [rdi + bpb32.totSec32], eax
-   256 00000336 E822080000          <1>     call computeFATSize
+   256 00000336 E81F080000          <1>     call computeFATSize
    257 0000033B 894719              <1>     mov dword [rdi + bpb32.FATsz32], eax
-   258 0000033E 890574090000        <1>     mov dword [fatSize], eax
+   258 0000033E 890571090000        <1>     mov dword [fatSize], eax
    259 00000344 66C7471D0000        <1>     mov word [rdi + bpb32.extFlags], 0  ;FAT mirroring active
    260                              <1>     ;Here we need to assign cluster 2 to be root dir. Later we
    261                              <1>     ; check to see if we can actually use cluster 2. If yes, 
@@ -1102,26 +1102,26 @@
    268                              <1> ;Now setup bootsector for writing.
    269                              <1> ;Entered with rsi -> extBS to write to
    270 0000035D 56                  <1>     push rsi    ;Save the ptr to the extBS to use on stack
-   271 0000035E E8E0060000          <1>     call prepPrintVals
-   272 00000363 488B1D30090000      <1>     mov rbx, qword [pBuffer]    
+   271 0000035E E8DD060000          <1>     call prepPrintVals
+   272 00000363 488B1D2D090000      <1>     mov rbx, qword [pBuffer]    
    273 0000036A 4889DF              <1>     mov rdi, rbx    ;Point rdi to the buffer
    274                              <1> ;Now copy the default bootsector into the buffer
-   275 0000036D 488B352F090000      <1>     mov rsi, qword [pBtLdr]
-   276 00000374 0FB70D32090000      <1>     movzx ecx, word [sectorSize]
+   275 0000036D 488B352C090000      <1>     mov rsi, qword [pBtLdr]
+   276 00000374 0FB70D2F090000      <1>     movzx ecx, word [sectorSize]
    277 0000037B F3A4                <1>     rep movsb   ;Copy the bootsector into the sector buffer
    278                              <1> ;Now copy the accurate BPB into the bootsector
    279 0000037D 488D7B0B            <1>     lea rdi, qword [rbx + 11]    ;Point rdi to the BPB in the sector
-   280 00000381 488B3535090000      <1>     mov rsi, qword [bpbPtr]
-   281 00000388 0FB60D36090000      <1>     movzx ecx, byte [bpbSize]   ;Now copy the bpb
+   280 00000381 488B3532090000      <1>     mov rsi, qword [bpbPtr]
+   281 00000388 0FB60D33090000      <1>     movzx ecx, byte [bpbSize]   ;Now copy the bpb
    282 0000038F F3A4                <1>     rep movsb
    283                              <1> ;Now setup the extended BPB fields.
    284 00000391 5E                  <1>     pop rsi ;Get back the extBS ptr to use
-   285 00000392 0FB60512090000      <1>     movzx eax, byte [remDev]
+   285 00000392 0FB6050F090000      <1>     movzx eax, byte [remDev]
    286 00000399 2580000000          <1>     and eax, 80h ;Save only bit 7
    287 0000039E 668906              <1>     mov word [rsi + extBs.drvNum], ax   ;Clear the reserved field too
-   288 000003A1 E84A070000          <1>     call getVolumeID    ;Gets a fresh ID in eax (preserve rbx->bootsector)
+   288 000003A1 E847070000          <1>     call getVolumeID    ;Gets a fresh ID in eax (preserve rbx->bootsector)
    289 000003A6 894603              <1>     mov dword [rsi + extBs.volId], eax
-   290 000003A9 89051F090000        <1>     mov dword [dSerNum], eax  ;Save the serial number
+   290 000003A9 89051C090000        <1>     mov dword [dSerNum], eax  ;Save the serial number
    291                              <1> ;Now copy the extended BPB fields too!
    292 000003AF B91A000000          <1>     mov ecx, extBs_size
    293 000003B4 F3A4                <1>     rep movsb
@@ -1131,9 +1131,9 @@
    297                              <1> ;Now sync the new BPB with the driver
    298 000003C6 B801000000          <1>     mov eax, specFuncBPB ;Lock the BPB for the update
    299 000003CB E807030000          <1>     call syncBpb
-   300 000003D0 0F825D080000        <1>     jc badIOCTLExit
+   300 000003D0 0F825A080000        <1>     jc badIOCTLExit
    301                              <1> proceedFormat:
-   302 000003D6 488D15AD0D0000      <1>     lea rdx, fmtMsg     ;Now we are about to write, print this message
+   302 000003D6 488D15AA0D0000      <1>     lea rdx, fmtMsg     ;Now we are about to write, print this message
    303 000003DD E829030000          <1>     call printString
    304 000003E2 E8A1030000          <1>     call dosCrit1Enter
    305 000003E7 E86F030000          <1>     call setDriveAccess ;Enable drive access now!
@@ -1141,8 +1141,8 @@
    307 000003EC B901000000          <1>     mov ecx, 1      ;ecx = Number of sectors to write
    308 000003F1 31D2                <1>     xor edx, edx    ;rdx = Start LBA to write to
    309 000003F3 E839030000          <1>     call writeSector
-   310 000003F8 0F82D9070000        <1>     jc badBtSctrExit
-   311 000003FE 803DA708000002      <1>     cmp byte [fatType], fs_fat32  ;If not FAT32, skip backup bootsector
+   310 000003F8 0F82D6070000        <1>     jc badBtSctrExit
+   311 000003FE 803DA408000002      <1>     cmp byte [fatType], fs_fat32  ;If not FAT32, skip backup bootsector
    312 00000405 7529                <1>     jne writeFat
    313                              <1> ;------------------
    314                              <1> ;Do FAT32 here
@@ -1158,27 +1158,27 @@
    324 0000041E B901000000          <1>     mov ecx, 1      ;ecx = Number of sectors to write
    325 00000423 31D2                <1>     xor edx, edx    ;rdx = Start LBA to write to
    326 00000425 E807030000          <1>     call writeSector
-   327 0000042A 0F82A7070000        <1>     jc badBtSctrExit   ;If this fails, it means bs is being dodgy. Fail!
+   327 0000042A 0F82A4070000        <1>     jc badBtSctrExit   ;If this fails, it means bs is being dodgy. Fail!
    328                              <1> writeFat:
    329 00000430 B8FEFFFFFF          <1>     mov eax, ~specFuncBPB    ;Unlock the BPB
    330 00000435 E89D020000          <1>     call syncBpb    ;Finish by syncing the BPB again
-   331 0000043A 0F82F3070000        <1>     jc badIOCTLExit
+   331 0000043A 0F82F0070000        <1>     jc badIOCTLExit
    332                              <1> ;Now we create the FAT sectors.
    333                              <1> ;We write both copies one sector at a time interleaving them.
-   334 00000440 8B3572080000        <1>     mov esi, dword [fatSize]    ;Get the number of sectors to write, as counter
-   335 00000446 E8E5050000          <1>     call cleanBuffer
-   336 0000044B 488B3D48080000      <1>     mov rdi, qword [pBuffer] ;Point rdi to the head of buffer area
-   337 00000452 E86B060000          <1>     call writeFATStartSig   ;Write the first two clusters in the map
+   334 00000440 8B356F080000        <1>     mov esi, dword [fatSize]    ;Get the number of sectors to write, as counter
+   335 00000446 E8E2050000          <1>     call cleanBuffer
+   336 0000044B 488B3D45080000      <1>     mov rdi, qword [pBuffer] ;Point rdi to the head of buffer area
+   337 00000452 E868060000          <1>     call writeFATStartSig   ;Write the first two clusters in the map
    338 00000457 B901000000          <1>     mov ecx, 1  ;ecx = Number of sectors to write
-   339 0000045C 488B3D5A080000      <1>     mov rdi, qword [bpbPtr] ;Get the ptr to the BPB
+   339 0000045C 488B3D57080000      <1>     mov rdi, qword [bpbPtr] ;Get the ptr to the BPB
    340 00000463 0FB75703            <1>     movzx edx, word [rdi + bpb.revdSecCnt]  ;Get the first sector past reserved
    341 00000467 52                  <1>     push rdx
    342 00000468 56                  <1>     push rsi
    343 00000469 E8C3020000          <1>     call writeSector
    344 0000046E 5E                  <1>     pop rsi
    345 0000046F 5A                  <1>     pop rdx
-   346 00000470 0F827E070000        <1>     jc badFATExit
-   347 00000476 8B053C080000        <1>     mov eax, dword [fatSize]
+   346 00000470 0F827B070000        <1>     jc badFATExit
+   347 00000476 8B0539080000        <1>     mov eax, dword [fatSize]
    348 0000047C 01C2                <1>     add edx, eax    ;Go to second fat copy
    349 0000047E B901000000          <1>     mov ecx, 1
    350 00000483 50                  <1>     push rax
@@ -1188,8 +1188,8 @@
    354 0000048B 5E                  <1>     pop rsi
    355 0000048C 5A                  <1>     pop rdx
    356 0000048D 58                  <1>     pop rax
-   357 0000048E 0F8260070000        <1>     jc badFATExit
-   358 00000494 488B3DFF070000      <1>     mov rdi, qword [pBuffer]
+   357 0000048E 0F825D070000        <1>     jc badFATExit
+   358 00000494 488B3DFC070000      <1>     mov rdi, qword [pBuffer]
    359 0000049B 48C70700000000      <1>     mov qword [rdi], 0  ;Overwrite the FAT reserved cluster markers
    360 000004A2 C7470800000000      <1>     mov dword [rdi + 8], 0  ;Overwrite potential additional FAT32 data
    361 000004A9 FFCE                <1>     dec esi ;Decrement the number of fat sectors left to count
@@ -1202,8 +1202,8 @@
    368 000004B6 E876020000          <1>     call writeSector
    369 000004BB 5E                  <1>     pop rsi
    370 000004BC 5A                  <1>     pop rdx
-   371 000004BD 0F8231070000        <1>     jc badFATExit
-   372 000004C3 8B05EF070000        <1>     mov eax, dword [fatSize]
+   371 000004BD 0F822E070000        <1>     jc badFATExit
+   372 000004C3 8B05EC070000        <1>     mov eax, dword [fatSize]
    373 000004C9 01C2                <1>     add edx, eax    ;Go to second fat copy
    374 000004CB B901000000          <1>     mov ecx, 1
    375 000004D0 50                  <1>     push rax
@@ -1213,20 +1213,20 @@
    379 000004D8 5E                  <1>     pop rsi
    380 000004D9 5A                  <1>     pop rdx
    381 000004DA 58                  <1>     pop rax
-   382 000004DB 0F8213070000        <1>     jc badFATExit
+   382 000004DB 0F8210070000        <1>     jc badFATExit
    383 000004E1 FFCE                <1>     dec esi
    384 000004E3 75C6                <1>     jnz fatFillLoop
    385                              <1>     ;Fall through once done with FAT
    386                              <1> rootDirectory:
    387                              <1>     ;FAT12 and 16 are simple, FAT32 is a bit more complex
-   388 000004E5 803DC007000002      <1>     cmp byte [fatType], fs_fat32
+   388 000004E5 803DBD07000002      <1>     cmp byte [fatType], fs_fat32
    389 000004EC 7444                <1>     je .fat32
    390                              <1>     ;Here we compute the number of Root Dir sectors and sanitise them
    391                              <1>     ;rdx should point to that sector now (since it works on FAT copy 2 last)
-   392 000004EE 488B1DC8070000      <1>     mov rbx, qword [bpbPtr]
+   392 000004EE 488B1DC5070000      <1>     mov rbx, qword [bpbPtr]
    393 000004F5 0FB77306            <1>     movzx esi, word [rbx + bpb.rootEntCnt]  ;Get the number of 32 byte entries
    394 000004F9 C1E605              <1>     shl esi, 5  ;Convert into the number of bytes in root directory
-   395 000004FC 0FB705AA070000      <1>     movzx eax, word [sectorSize]    ;Get the sector size
+   395 000004FC 0FB705A7070000      <1>     movzx eax, word [sectorSize]    ;Get the sector size
    396 00000503 96                  <1>     xchg esi, eax
    397 00000504 52                  <1>     push rdx
    398 00000505 31D2                <1>     xor edx, edx
@@ -1243,10 +1243,10 @@
    409 0000051B 5E                  <1>     pop rsi
    410 0000051C 5A                  <1>     pop rdx
    411 0000051D 59                  <1>     pop rcx
-   412 0000051E 0F82E5060000        <1>     jc badDirExit
+   412 0000051E 0F82E2060000        <1>     jc badDirExit
    413 00000524 FFCE                <1>     dec esi
    414 00000526 75E9                <1>     jnz .fatLoop
-   415 00000528 E803040000          <1>     call writeFmtEnd    ;Write the disk formatted message
+   415 00000528 E800040000          <1>     call writeFmtEnd    ;Write the disk formatted message
    416 0000052D E90C010000          <1>     jmp exitFormat
    417                              <1> .fat32:
    418                              <1> ;------------------
@@ -1260,32 +1260,32 @@
    426                              <1> ;Step 4) Write back copy.
    427                              <1> ;Step 5) Loop through sectors of the cluster nulling the sector out
    428                              <1> ;Step 6) Decrement the Total Cluster Count as root now perma-allocated.
-   429 00000532 488B0D9D070000      <1>     mov rcx, qword [secToWrite]
-   430 00000539 488B0D9E070000      <1>     mov rcx, qword [secWritten]
+   429 00000532 488B0D9A070000      <1>     mov rcx, qword [secToWrite]
+   430 00000539 488B0D9B070000      <1>     mov rcx, qword [secWritten]
    431 00000540 B901000000          <1>     mov ecx, 1
-   432 00000545 488B3D71070000      <1>     mov rdi, qword [bpbPtr]
+   432 00000545 488B3D6E070000      <1>     mov rdi, qword [bpbPtr]
    433 0000054C 0FB75703            <1>     movzx edx, word [rdi + bpb32.revdSecCnt]
    434 00000550 51                  <1>     push rcx
    435 00000551 52                  <1>     push rdx
    436 00000552 E8C4010000          <1>     call readSector
    437 00000557 5A                  <1>     pop rdx
    438 00000558 59                  <1>     pop rcx
-   439 00000559 488B1D3A070000      <1>     mov rbx, qword [pBuffer]
+   439 00000559 488B1D37070000      <1>     mov rbx, qword [pBuffer]
    440 00000560 C74308FFFFFFFF      <1>     mov dword [rbx + 8], -1     ;Allocate this cluster
    441 00000567 51                  <1>     push rcx
    442 00000568 52                  <1>     push rdx
    443 00000569 E8D7010000          <1>     call writeSectorBreak   ;Write without updating the count
    444 0000056E 5A                  <1>     pop rdx
    445 0000056F 59                  <1>     pop rcx
-   446 00000570 0F8293060000        <1>     jc badDirExit
+   446 00000570 0F8290060000        <1>     jc badDirExit
    447 00000576 035719              <1>     add edx, dword [rdi + bpb32.FATsz32]   ;Go to backup FAT sector
    448 00000579 52                  <1>     push rdx
    449 0000057A E8C6010000          <1>     call writeSectorBreak
    450 0000057F 5A                  <1>     pop rdx
-   451 00000580 0F8283060000        <1>     jc badDirExit
+   451 00000580 0F8280060000        <1>     jc badDirExit
    452 00000586 035719              <1>     add edx, dword [rdi + bpb32.FATsz32]   ;Go to first data sector
    453 00000589 57                  <1>     push rdi
-   454 0000058A E8A1040000          <1>     call cleanBuffer    ;Clean the buffer for writeback
+   454 0000058A E89E040000          <1>     call cleanBuffer    ;Clean the buffer for writeback
    455 0000058F 5F                  <1>     pop rdi
    456 00000590 0FB67702            <1>     movzx esi, byte [rdi + bpb32.secPerClus]
    457 00000594 B901000000          <1>     mov ecx, 1
@@ -1297,14 +1297,14 @@
    463 000005A1 5E                  <1>     pop rsi
    464 000005A2 5A                  <1>     pop rdx
    465 000005A3 59                  <1>     pop rcx
-   466 000005A4 0F825F060000        <1>     jc badDirExit
+   466 000005A4 0F825C060000        <1>     jc badDirExit
    467 000005AA FFC2                <1>     inc edx ;Next consecutive sector
    468 000005AC FFCE                <1>     dec esi ;Decrement count
    469 000005AE 75E9                <1>     jnz .fat32RootClean
    470                              <1> ;Now we are done with the common bit, last thing for FAT32, create the
    471                              <1> ; FSInfo (with no useful info, for now as DOS will sync this)
-   472 000005B0 E87B040000          <1>     call cleanBuffer
-   473 000005B5 488B1DDE060000      <1>     mov rbx, qword [pBuffer]
+   472 000005B0 E878040000          <1>     call cleanBuffer
+   473 000005B5 488B1DDB060000      <1>     mov rbx, qword [pBuffer]
    474 000005BC C70352526141        <1>     mov dword [rbx], 41615252h          ;Initial signature
    475 000005C2 C783E4010000727241- <1>     mov dword [rbx + 484], 61417272h    ;Intermediate signature
    475 000005CB 61                  <1>
@@ -1319,30 +1319,30 @@
    481 000005F4 51                  <1>     push rcx
    482 000005F5 E837010000          <1>     call writeSector
    483 000005FA 59                  <1>     pop rcx
-   484 000005FB 0F821D060000        <1>     jc badFSINFOExit
+   484 000005FB 0F821A060000        <1>     jc badFSINFOExit
    485 00000601 BA07000000          <1>     mov edx, 7
    486 00000606 E826010000          <1>     call writeSector
-   487 0000060B 0F820D060000        <1>     jc badFSINFOExit
-   488 00000611 E81A030000          <1>     call writeFmtEnd    ;Write the disk formatted message
+   487 0000060B 0F820A060000        <1>     jc badFSINFOExit
+   488 00000611 E817030000          <1>     call writeFmtEnd    ;Write the disk formatted message
    489                              <1> ;Now we sync DOS's free cluster count. Warn the user of the possible delay.
-   490 00000616 488D15020C0000      <1>     lea rdx, freeSpcStr
+   490 00000616 488D15FF0B0000      <1>     lea rdx, freeSpcStr
    491 0000061D E8E9000000          <1>     call printString
    492 00000622 B800360000          <1>     mov eax, 3600h  ;Get free space count
-   493 00000627 0FB61562060000      <1>     movzx edx, byte [fmtDrive]
+   493 00000627 0FB6155F060000      <1>     movzx edx, byte [fmtDrive]
    494 0000062E FFC2                <1>     inc edx ;Turn into a 1 based count
    495 00000630 CD21                <1>     int 21h
-   496 00000632 488D15220C0000      <1>     lea rdx, completeStr    ;Indicate computation done!
+   496 00000632 488D151F0C0000      <1>     lea rdx, completeStr    ;Indicate computation done!
    497 00000639 E8CD000000          <1>     call printString
    498                              <1> exitFormat:
    499 0000063E E84D010000          <1>     call dosCrit1Exit
    500 00000643 E88D010000          <1>     call writeDiskStats     ;Write the stats on the volume we just formatted
-   501 00000648 F6055C060000FF      <1>     test byte [remDev], -1  ;Was this drive fixed? Set if so.
-   502 0000064F 0F8561050000        <1>     jnz exitOk
+   501 00000648 F60559060000FF      <1>     test byte [remDev], -1  ;Was this drive fixed? Set if so.
+   502 0000064F 0F855E050000        <1>     jnz exitOk
    503                              <1> ;If we formatted on a remdev, ask if we wanna go again?
-   504 00000655 488D15550B0000      <1>     lea rdx, againStr
+   504 00000655 488D15520B0000      <1>     lea rdx, againStr
    505 0000065C E840010000          <1>     call doYNWait
-   506 00000661 0F824F050000        <1>     jc exitOk  ;If CF=CY, we said no and we are done!
-   507 00000667 488D15190B0000      <1>     lea rdx, crlfStr
+   506 00000661 0F824C050000        <1>     jc exitOk  ;If CF=CY, we said no and we are done!
+   507 00000667 488D15160B0000      <1>     lea rdx, crlfStr
    508 0000066E E898000000          <1>     call printString    ;Output a new line!
    509 00000673 E97CFAFFFF          <1>     jmp startFormat.gotRemDev ;And prompt user to insert new media in drive :)
    510                              <1> 
@@ -1362,7 +1362,7 @@
    524                              <1> ;
    525 00000678 52                  <1>     push rdx
    526 00000679 50                  <1>     push rax
-   527 0000067A 488D15A00A0000      <1>     lea rdx, cancel
+   527 0000067A 488D159D0A0000      <1>     lea rdx, cancel
    528 00000681 E81B010000          <1>     call doYNWait       ;If ret CF=NC, we said yes so exit! Else just redo op!
    529 00000686 720C                <1>     jc .noAbort
    530 00000688 E803010000          <1>     call dosCrit1Exit   ;Exit the critical section since we are quitting
@@ -1387,7 +1387,7 @@
    549 000006A9 7310                <1>     jnc .gotBpb
    550                              <1> .bad:
    551                              <1> ;If we cant even get the BS anymore, lock drive (if fixed).
-   552 000006AB F605F9050000FF      <1>     test byte [remDev], -1
+   552 000006AB F605F6050000FF      <1>     test byte [remDev], -1
    553                              <1>     retz
     41                              <2> cret z
     19                              <3> %%_base:
@@ -1440,9 +1440,9 @@
    573 000006D7 B940080000          <1>     mov ecx, 0840h          ;Disk drive type IOCTL, set FAT parameters
    574 000006DC 0D04000000          <1>     or eax, specFuncSec     ;We only format media to all sectors equal size
    575                              <1> .cmn:
-   576 000006E1 488D15F3060000      <1>     lea rdx, ioParams       ;Point to parameter block
+   576 000006E1 488D15F0060000      <1>     lea rdx, ioParams       ;Point to parameter block
    577 000006E8 8802                <1>     mov byte [rdx + chsParamsBlock.bSpecFuncs], al
-   578 000006EA 0FB61D9F050000      <1>     movzx ebx, byte [fmtDrive]
+   578 000006EA 0FB61D9C050000      <1>     movzx ebx, byte [fmtDrive]
    579 000006F1 FFC3                <1>     inc ebx
    580 000006F3 B80D440000          <1>     mov eax, 440Dh      ;Generic IOCTL 
    581 000006F8 CD21                <1>     int 21h
@@ -1496,8 +1496,8 @@
    614                              <1> ;ecx = Number of sectors to read
    615                              <1> ;rdx = Start LBA to read from
    616 0000071B E8F3FFFFFF          <1>     call checkBreak
-   617 00000720 8A056A050000        <1>     mov al, byte [fmtDrive]     ; Always read from fmtDrive
-   618 00000726 488B1D6D050000      <1>     mov rbx, qword [pBuffer] ; Memory Buffer address to read from
+   617 00000720 8A0567050000        <1>     mov al, byte [fmtDrive]     ; Always read from fmtDrive
+   618 00000726 488B1D6A050000      <1>     mov rbx, qword [pBuffer] ; Memory Buffer address to read from
    619 0000072D CD25                <1>     int 25h
    620 0000072F 58                  <1>     pop rax ;Pop old flags into rax
    621                              <1>     return
@@ -1530,16 +1530,16 @@
     35                              <3>  return
     36                              <3> %%a:
     37                              <3>  %endif
-   628 00000738 48FF059F050000      <1>     inc qword [secWritten]
-   629 0000073F E8F9010000          <1>     call writeStatusUpdate  ;Update the percentage done message!
+   628 00000738 48FF059C050000      <1>     inc qword [secWritten]
+   629 0000073F E8F6010000          <1>     call writeStatusUpdate  ;Update the percentage done message!
    630                              <1>     return
     13                              <2> %%_ret:
     14 00000744 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
    631                              <1> writeSectorBreak:
    632 00000745 E8C9FFFFFF          <1>     call checkBreak
-   633 0000074A 8A0540050000        <1>     mov al, byte [fmtDrive]     ; Always write to fmtDrive
-   634 00000750 488B1D43050000      <1>     mov rbx, qword [pBuffer] ; Memory Buffer address to read from
+   633 0000074A 8A053D050000        <1>     mov al, byte [fmtDrive]     ; Always write to fmtDrive
+   634 00000750 488B1D40050000      <1>     mov rbx, qword [pBuffer] ; Memory Buffer address to read from
    635 00000757 CD26                <1>     int 26h
    636 00000759 58                  <1>     pop rax ;Pop old flags into rax
    637                              <1>     return
@@ -1549,14 +1549,14 @@
    638                              <1> 
    639                              <1> setDriveAccess:
    640                              <1> ;For now, I will simply force drive access on!
-   641 0000075B C60578060000FF      <1>     mov byte [accFlgPkt + accFlgBlk.bAccMode], -1
+   641 0000075B C60575060000FF      <1>     mov byte [accFlgPkt + accFlgBlk.bAccMode], -1
    642 00000762 EB07                <1>     jmp short resetDriveAccess.cmn
    643                              <1> resetDriveAccess:
-   644 00000764 C6056F06000000      <1>     mov byte [accFlgPkt + accFlgBlk.bAccMode], 0
+   644 00000764 C6056C06000000      <1>     mov byte [accFlgPkt + accFlgBlk.bAccMode], 0
    645                              <1> .cmn:
-   646 0000076B 488D1567060000      <1>     lea rdx, accFlgPkt
+   646 0000076B 488D1564060000      <1>     lea rdx, accFlgPkt
    647 00000772 B947080000          <1>     mov ecx, 0847h  ;Set Access flag on disk drive
-   648 00000777 0FB61D12050000      <1>     movzx ebx, byte [fmtDrive]
+   648 00000777 0FB61D0F050000      <1>     movzx ebx, byte [fmtDrive]
    649 0000077E FFC3                <1>     inc ebx ;Turn into a 1 based drive number
    650 00000780 B80D440000          <1>     mov eax, 440Dh  ;Generic IOCTL
    651 00000785 CD21                <1>     int 21h
@@ -1568,7 +1568,7 @@
    654                              <1> ;Do not put the whole format through a critical section, that is insane!
    655                              <1> ;Use a DOS networking extension to obtain a handle to the drive.
    656                              <1> dosCrit1Enter:
-   657 00000788 C60502050000FF      <1>     mov byte [inCrit], -1   ;Entering a DOS level 1 critical section
+   657 00000788 C605FF040000FF      <1>     mov byte [inCrit], -1   ;Entering a DOS level 1 critical section
    658                              <1>     ;push rax 
    659                              <1>     ;mov eax, 8001h
    660                              <1>     ;int 2ah
@@ -1578,7 +1578,7 @@
     14 0000078F C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
    663                              <1> dosCrit1Exit:
-   664 00000790 F605FA040000FF      <1>     test byte [inCrit], -1  ;If we are not in a critical section, just return
+   664 00000790 F605F7040000FF      <1>     test byte [inCrit], -1  ;If we are not in a critical section, just return
    665                              <1>     retz
     41                              <2> cret z
     19                              <3> %%_base:
@@ -1604,7 +1604,7 @@
    667                              <1>     ;mov eax, 8101h          
    668                              <1>     ;int 2ah
    669                              <1>     ;pop rax
-   670 00000799 C605F104000000      <1>     mov byte [inCrit], 0    ;Indicate we have exited the critical section
+   670 00000799 C605EE04000000      <1>     mov byte [inCrit], 0    ;Indicate we have exited the critical section
    671                              <1>     return
     13                              <2> %%_ret:
     14 000007A0 C3                  <2>  ret
@@ -1618,7 +1618,7 @@
      6                              <1> ; indicate that input has been recieved.
      7 000007A1 E80F000000          <1>     call .doWait
      8 000007A6 9C                  <1>     pushfq
-     9 000007A7 488D15D9090000      <1>     lea rdx, crlfStr
+     9 000007A7 488D15D6090000      <1>     lea rdx, crlfStr
     10 000007AE E858FFFFFF          <1>     call printString    ;Output a new line!
     11 000007B3 9D                  <1>     popfq
     12                              <1>     return
@@ -1670,305 +1670,303 @@
     46                              <1> ;Volume Serial Number is <Serial-Number>
     47                              <1> ;-------------------------------------------------------
     48                              <1> ;Start start by putting a new line
-    49 000007D5 488D15AB090000      <1>     lea rdx, crlfStr
+    49 000007D5 488D15A8090000      <1>     lea rdx, crlfStr
     50 000007DC E82AFFFFFF          <1>     call printString
-    51                              <1>     breakpoint
-    81 000007E1 6687DB              <2> xchg bx, bx
-    52                              <1> ;Start by getting free sector count from DOS. We do this to make the 
-    53                              <1> ; computation of the free sector count easier after /s and if any bad clusters.
-    54 000007E4 B800360000          <1>     mov eax, 3600h  ;Get free space count
-    55 000007E9 0FB615A0040000      <1>     movzx edx, byte [fmtDrive]
-    56 000007F0 FFC2                <1>     inc edx ;Turn into a 1 based count
-    57 000007F2 CD21                <1>     int 21h
-    58                              <1> ;If we have a FAT 32 drive, add one cluster to the free count to account for
-    59                              <1> ; the root directory cluster.
-    60 000007F4 803DB104000002      <1>     cmp byte [fatType], fs_fat32
-    61 000007FB 7502                <1>     jne .goSave
-    62 000007FD FFC3                <1>     inc ebx ;Discount the root directory from initial count!
-    63                              <1> .goSave:
-    64                              <1> ;Use x64 regs instead of stack frame
-    65 000007FF 4989D0              <1>     mov r8, rdx ;r8 = Total cluster count in data area
-    66 00000802 4989D9              <1>     mov r9, rbx ;r9 = Free cluster count in the data area
-    67                              <1> ;Total number of bytes, ebx still has total count
-    68 00000805 0FB605AB040000      <1>     movzx eax, byte [secPerClust]
-    69 0000080C 0FB70D9A040000      <1>     movzx ecx, word [sectorSize]
-    70 00000813 F7E1                <1>     mul ecx     ;Get the number of bytes per cluster in eax
-    71 00000815 4989C2              <1>     mov r10, rax    ;Save this value in r10
-    72 00000818 49F7E0              <1>     mul r8      ;Get in eax the number of bytes on disk
-    73 0000081B E868010000          <1>     call printDecimalDword
-    74 00000820 488D15400A0000      <1>     lea rdx, totalBytesStr
-    75 00000827 E8DFFEFFFF          <1>     call printString
-    76                              <1> ;System bytes
-    77 0000082C F6056F04000002      <1>     test byte [bFlag1], bitSystem
-    78 00000833 741E                <1>     jz .skipSystem
-    79 00000835 4C89C9              <1>     mov rcx, r9     ;Get the free cluster count
-    80 00000838 4C89C0              <1>     mov rax, r8     ;Get the total cluster count
-    81 0000083B 29C8                <1>     sub eax, ecx    ;Workout the amount of space taken by system files
-    82 0000083D 4C89D1              <1>     mov rcx, r10    ;Get word BytesPerClust
-    83 00000840 F7E1                <1>     mul ecx         ;Get the number of bytes taken by system files
-    84 00000842 E841010000          <1>     call printDecimalDword
-    85 00000847 488D15330A0000      <1>     lea rdx, sysBytesStr
-    86 0000084E E8B8FEFFFF          <1>     call printString
-    87                              <1> .skipSystem:
-    88                              <1> ;Bad cluster bytes
-    89 00000853 8B0D79040000        <1>     mov ecx, dword [dBadClust]
-    90 00000859 85C9                <1>     test ecx, ecx
-    91 0000085B 741B                <1>     jz .skipBad
-    92 0000085D 4C89C0              <1>     mov rax, r8     ;Get the total cluster count
-    93 00000860 29C8                <1>     sub eax, ecx
-    94 00000862 4C89D1              <1>     mov rcx, r10    ;Get word BytesPerClust
-    95 00000865 F7E1                <1>     mul ecx         ;Get the number of bytes taken by bad clusters
-    96 00000867 E81C010000          <1>     call printDecimalDword
-    97 0000086C 488D15260A0000      <1>     lea rdx, badSectStr
-    98 00000873 E893FEFFFF          <1>     call printString
-    99                              <1> .skipBad:
-   100                              <1> ;Free bytes
-   101 00000878 4C89C8              <1>     mov rax, r9     ;Get free cluster count
-   102 0000087B 4C89D1              <1>     mov rcx, r10    ;Get word BytesPerClust
-   103 0000087E F7E1                <1>     mul ecx         ;Get the number of free bytes
-   104 00000880 E803010000          <1>     call printDecimalDword
-   105 00000885 488D15250A0000      <1>     lea rdx, availableBytesStr
-   106 0000088C E87AFEFFFF          <1>     call printString
-   107                              <1> ;Bytes per cluster
-   108 00000891 4C89D0              <1>     mov rax, r10    ;Get word BytesPerClust
-   109 00000894 E8EF000000          <1>     call printDecimalDword
-   110 00000899 488D152D0A0000      <1>     lea rdx, clustSzStr
-   111 000008A0 E866FEFFFF          <1>     call printString
-   112                              <1> ;Number of clusters
-   113 000008A5 4C89C0              <1>     mov rax, r8     ;Get the total cluster count
-   114 000008A8 E8DB000000          <1>     call printDecimalDword
-   115 000008AD 488D153B0A0000      <1>     lea rdx, totClusStr
-   116 000008B4 E852FEFFFF          <1>     call printString
-   117                              <1> ;Vol Serial Number
-   118 000008B9 488D15570A0000      <1>     lea rdx, volSerialNumStr
-   119 000008C0 E846FEFFFF          <1>     call printString
-   120 000008C5 488D3502040000      <1>     lea rsi, qword [dSerNum]
-   121 000008CC AC                  <1>     lodsb
-   122 000008CD E829000000          <1>     call printHexByte
-   123 000008D2 AC                  <1>     lodsb
-   124 000008D3 E823000000          <1>     call printHexByte
-   125 000008D8 BA2D000000          <1>     mov edx, "-"
-   126 000008DD E821FEFFFF          <1>     call putch
-   127 000008E2 AC                  <1>     lodsb
-   128 000008E3 E813000000          <1>     call printHexByte
-   129 000008E8 AC                  <1>     lodsb
-   130 000008E9 E80D000000          <1>     call printHexByte
-   131                              <1> ;We are done so print a new line :)
-   132 000008EE 488D1592080000      <1>     lea rdx, crlfStr
-   133 000008F5 E811FEFFFF          <1>     call printString    ;Output a new line!
-   134                              <1>     return
+    51                              <1> ;Start by getting free sector count from DOS. We do this to make the 
+    52                              <1> ; computation of the free sector count easier after /s and if any bad clusters.
+    53 000007E1 B800360000          <1>     mov eax, 3600h  ;Get free space count
+    54 000007E6 0FB615A0040000      <1>     movzx edx, byte [fmtDrive]
+    55 000007ED FFC2                <1>     inc edx ;Turn into a 1 based count
+    56 000007EF CD21                <1>     int 21h
+    57                              <1> ;If we have a FAT 32 drive, add one cluster to the free count to account for
+    58                              <1> ; the root directory cluster.
+    59 000007F1 803DB104000002      <1>     cmp byte [fatType], fs_fat32
+    60 000007F8 7502                <1>     jne .goSave
+    61 000007FA FFC3                <1>     inc ebx ;Discount the root directory from initial count!
+    62                              <1> .goSave:
+    63                              <1> ;Use x64 regs instead of stack frame
+    64 000007FC 4989D0              <1>     mov r8, rdx ;r8 = Total cluster count in data area
+    65 000007FF 4989D9              <1>     mov r9, rbx ;r9 = Free cluster count in the data area
+    66                              <1> ;Total number of bytes, ebx still has total count
+    67 00000802 0FB605AB040000      <1>     movzx eax, byte [secPerClust]
+    68 00000809 0FB70D9A040000      <1>     movzx ecx, word [sectorSize]
+    69 00000810 F7E1                <1>     mul ecx     ;Get the number of bytes per cluster in eax
+    70 00000812 4989C2              <1>     mov r10, rax    ;Save this value in r10
+    71 00000815 49F7E0              <1>     mul r8      ;Get in eax the number of bytes on disk
+    72 00000818 E868010000          <1>     call printDecimalDword
+    73 0000081D 488D15400A0000      <1>     lea rdx, totalBytesStr
+    74 00000824 E8E2FEFFFF          <1>     call printString
+    75                              <1> ;System bytes
+    76 00000829 F6056F04000002      <1>     test byte [bFlag1], bitSystem
+    77 00000830 741E                <1>     jz .skipSystem
+    78 00000832 4C89C9              <1>     mov rcx, r9     ;Get the free cluster count
+    79 00000835 4C89C0              <1>     mov rax, r8     ;Get the total cluster count
+    80 00000838 29C8                <1>     sub eax, ecx    ;Workout the amount of space taken by system files
+    81 0000083A 4C89D1              <1>     mov rcx, r10    ;Get word BytesPerClust
+    82 0000083D F7E1                <1>     mul ecx         ;Get the number of bytes taken by system files
+    83 0000083F E841010000          <1>     call printDecimalDword
+    84 00000844 488D15330A0000      <1>     lea rdx, sysBytesStr
+    85 0000084B E8BBFEFFFF          <1>     call printString
+    86                              <1> .skipSystem:
+    87                              <1> ;Bad cluster bytes
+    88 00000850 8B0D79040000        <1>     mov ecx, dword [dBadClust]
+    89 00000856 85C9                <1>     test ecx, ecx
+    90 00000858 741B                <1>     jz .skipBad
+    91 0000085A 4C89C0              <1>     mov rax, r8     ;Get the total cluster count
+    92 0000085D 29C8                <1>     sub eax, ecx
+    93 0000085F 4C89D1              <1>     mov rcx, r10    ;Get word BytesPerClust
+    94 00000862 F7E1                <1>     mul ecx         ;Get the number of bytes taken by bad clusters
+    95 00000864 E81C010000          <1>     call printDecimalDword
+    96 00000869 488D15260A0000      <1>     lea rdx, badSectStr
+    97 00000870 E896FEFFFF          <1>     call printString
+    98                              <1> .skipBad:
+    99                              <1> ;Free bytes
+   100 00000875 4C89C8              <1>     mov rax, r9     ;Get free cluster count
+   101 00000878 4C89D1              <1>     mov rcx, r10    ;Get word BytesPerClust
+   102 0000087B F7E1                <1>     mul ecx         ;Get the number of free bytes
+   103 0000087D E803010000          <1>     call printDecimalDword
+   104 00000882 488D15250A0000      <1>     lea rdx, availableBytesStr
+   105 00000889 E87DFEFFFF          <1>     call printString
+   106                              <1> ;Bytes per cluster
+   107 0000088E 4C89D0              <1>     mov rax, r10    ;Get word BytesPerClust
+   108 00000891 E8EF000000          <1>     call printDecimalDword
+   109 00000896 488D152D0A0000      <1>     lea rdx, clustSzStr
+   110 0000089D E869FEFFFF          <1>     call printString
+   111                              <1> ;Number of clusters
+   112 000008A2 4C89C0              <1>     mov rax, r8     ;Get the total cluster count
+   113 000008A5 E8DB000000          <1>     call printDecimalDword
+   114 000008AA 488D153B0A0000      <1>     lea rdx, totClusStr
+   115 000008B1 E855FEFFFF          <1>     call printString
+   116                              <1> ;Vol Serial Number
+   117 000008B6 488D15570A0000      <1>     lea rdx, volSerialNumStr
+   118 000008BD E849FEFFFF          <1>     call printString
+   119 000008C2 488D3502040000      <1>     lea rsi, qword [dSerNum]
+   120 000008C9 AC                  <1>     lodsb
+   121 000008CA E829000000          <1>     call printHexByte
+   122 000008CF AC                  <1>     lodsb
+   123 000008D0 E823000000          <1>     call printHexByte
+   124 000008D5 BA2D000000          <1>     mov edx, "-"
+   125 000008DA E824FEFFFF          <1>     call putch
+   126 000008DF AC                  <1>     lodsb
+   127 000008E0 E813000000          <1>     call printHexByte
+   128 000008E5 AC                  <1>     lodsb
+   129 000008E6 E80D000000          <1>     call printHexByte
+   130                              <1> ;We are done so print a new line :)
+   131 000008EB 488D1592080000      <1>     lea rdx, crlfStr
+   132 000008F2 E814FEFFFF          <1>     call printString    ;Output a new line!
+   133                              <1>     return
     13                              <2> %%_ret:
-    14 000008FA C3                  <2>  ret
+    14 000008F7 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   135                              <1> 
-   136                              <1> printHexByte:
-   137 000008FB 488D1D1E000000      <1>     lea rbx, .tbl
-   138 00000902 50                  <1>     push rax
-   139 00000903 C1E804              <1>     shr eax, 4  ;Move nybble down
-   140 00000906 E807000000          <1>     call .phn
-   141 0000090B 58                  <1>     pop rax
-   142 0000090C E801000000          <1>     call .phn
-   143                              <1>     return
+   134                              <1> 
+   135                              <1> printHexByte:
+   136 000008F8 488D1D1E000000      <1>     lea rbx, .tbl
+   137 000008FF 50                  <1>     push rax
+   138 00000900 C1E804              <1>     shr eax, 4  ;Move nybble down
+   139 00000903 E807000000          <1>     call .phn
+   140 00000908 58                  <1>     pop rax
+   141 00000909 E801000000          <1>     call .phn
+   142                              <1>     return
     13                              <2> %%_ret:
-    14 00000911 C3                  <2>  ret
+    14 0000090E C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   144                              <1> .phn:
-   145                              <1> ;Prints hex nybble in al.
-   146 00000912 250F000000          <1>     and eax, 0Fh    ;Save lower nybble only
-   147 00000917 D7                  <1>     xlatb
-   148 00000918 89C2                <1>     mov edx, eax
-   149 0000091A E8E4FDFFFF          <1>     call putch
-   150                              <1>     return
+   143                              <1> .phn:
+   144                              <1> ;Prints hex nybble in al.
+   145 0000090F 250F000000          <1>     and eax, 0Fh    ;Save lower nybble only
+   146 00000914 D7                  <1>     xlatb
+   147 00000915 89C2                <1>     mov edx, eax
+   148 00000917 E8E7FDFFFF          <1>     call putch
+   149                              <1>     return
     13                              <2> %%_ret:
-    14 0000091F C3                  <2>  ret
+    14 0000091C C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   151 00000920 303132333435363738- <1> .tbl    db "0123456789ABCDEF"
-   151 00000929 39414243444546      <1>
-   152                              <1> 
-   153                              <1> writeFmtEnd:
-   154 00000930 488D1591080000      <1>     lea rdx, okFormat   ;Successfully formatted!
-   155 00000937 E8CFFDFFFF          <1>     call printString
-   156                              <1>     return
+   150 0000091D 303132333435363738- <1> .tbl    db "0123456789ABCDEF"
+   150 00000926 39414243444546      <1>
+   151                              <1> 
+   152                              <1> writeFmtEnd:
+   153 0000092D 488D1591080000      <1>     lea rdx, okFormat   ;Successfully formatted!
+   154 00000934 E8D2FDFFFF          <1>     call printString
+   155                              <1>     return
     13                              <2> %%_ret:
-    14 0000093C C3                  <2>  ret
+    14 00000939 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   157                              <1>     
-   158                              <1> writeStatusUpdate:
-   159 0000093D 51                  <1>     push rcx
-   160 0000093E 52                  <1>     push rdx
-   161 0000093F 488B0598030000      <1>     mov rax, qword [secWritten]
-   162 00000946 BB64000000          <1>     mov ebx, 100
-   163 0000094B 48F7E3              <1>     mul rbx ;Multiply number of sectors by 100
-   164 0000094E 488B1D81030000      <1>     mov rbx, qword [secToWrite]
-   165 00000955 31D2                <1>     xor edx, edx
-   166 00000957 48F7F3              <1>     div rbx ;Get percentage of written sectors in rax (formally al)
-   167 0000095A 3A0586030000        <1>     cmp al, byte [secPercent]
-   168 00000960 7423                <1>     je .exit    ;If they are equal, dont bother printing again
-   169                              <1> ;Here we have a new percentage! Update the message!
-   170 00000962 88057E030000        <1>     mov byte [secPercent], al
-   171 00000968 B903000000          <1>     mov ecx, 3  ;Max 3 chars to print (up to 100)
-   172 0000096D E823000000          <1>     call printDecimalValLB
-   173 00000972 488D1521080000      <1>     lea rdx, fmtPcntMsg
-   174 00000979 E88DFDFFFF          <1>     call printString
-   175 0000097E B20D                <1>     mov dl, CR
-   176 00000980 E87EFDFFFF          <1>     call putch  ;End by returning to the start of the line
-   177                              <1> .exit:
-   178 00000985 5A                  <1>     pop rdx
-   179 00000986 59                  <1>     pop rcx
-   180                              <1>     return 
+   156                              <1>     
+   157                              <1> writeStatusUpdate:
+   158 0000093A 51                  <1>     push rcx
+   159 0000093B 52                  <1>     push rdx
+   160 0000093C 488B0598030000      <1>     mov rax, qword [secWritten]
+   161 00000943 BB64000000          <1>     mov ebx, 100
+   162 00000948 48F7E3              <1>     mul rbx ;Multiply number of sectors by 100
+   163 0000094B 488B1D81030000      <1>     mov rbx, qword [secToWrite]
+   164 00000952 31D2                <1>     xor edx, edx
+   165 00000954 48F7F3              <1>     div rbx ;Get percentage of written sectors in rax (formally al)
+   166 00000957 3A0586030000        <1>     cmp al, byte [secPercent]
+   167 0000095D 7423                <1>     je .exit    ;If they are equal, dont bother printing again
+   168                              <1> ;Here we have a new percentage! Update the message!
+   169 0000095F 88057E030000        <1>     mov byte [secPercent], al
+   170 00000965 B903000000          <1>     mov ecx, 3  ;Max 3 chars to print (up to 100)
+   171 0000096A E823000000          <1>     call printDecimalValLB
+   172 0000096F 488D1521080000      <1>     lea rdx, fmtPcntMsg
+   173 00000976 E890FDFFFF          <1>     call printString
+   174 0000097B B20D                <1>     mov dl, CR
+   175 0000097D E881FDFFFF          <1>     call putch  ;End by returning to the start of the line
+   176                              <1> .exit:
+   177 00000982 5A                  <1>     pop rdx
+   178 00000983 59                  <1>     pop rcx
+   179                              <1>     return 
     13                              <2> %%_ret:
-    14 00000987 C3                  <2>  ret
+    14 00000984 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   181                              <1> 
-   182                              <1> printDecimalDword:
-   183 00000988 51                  <1>     push rcx
-   184 00000989 B911000000          <1>     mov ecx, 17 ;Need to make space for dword + commas
-   185 0000098E E802000000          <1>     call printDecimalValLB
-   186 00000993 59                  <1>     pop rcx
-   187                              <1>     return
+   180                              <1> 
+   181                              <1> printDecimalDword:
+   182 00000985 51                  <1>     push rcx
+   183 00000986 B911000000          <1>     mov ecx, 17 ;Need to make space for dword + commas
+   184 0000098B E802000000          <1>     call printDecimalValLB
+   185 00000990 59                  <1>     pop rcx
+   186                              <1>     return
     13                              <2> %%_ret:
-    14 00000994 C3                  <2>  ret
+    14 00000991 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   188                              <1> printDecimalValLB:
-   189                              <1> ;Takes a value in rax and prints it's decimal representation with leading
-   190                              <1> ; blanks and inserts commas where appropriate.
-   191                              <1> ;Input: rax = Value to print
-   192                              <1> ;       rcx = Buffer size to handle (usual values: 17 for max, 13 for dword)
-   193 00000995 4889E5              <1>     mov rbp, rsp
-   194 00000998 4829CC              <1>     sub rsp, rcx ;Allocate the buffer on the stack
-   195 0000099B 4889EF              <1>     mov rdi, rbp
-   196 0000099E 4829CF              <1>     sub rdi, rcx
-   197 000009A1 50                  <1>     push rax
-   198 000009A2 51                  <1>     push rcx
-   199 000009A3 57                  <1>     push rdi
-   200 000009A4 31C0                <1>     xor eax, eax
-   201 000009A6 F3AA                <1>     rep stosb   ;Initialise the buffer with a null value
-   202 000009A8 5F                  <1>     pop rdi     ;Now set the ptr to the head of the buffer
-   203 000009A9 59                  <1>     pop rcx
-   204 000009AA 58                  <1>     pop rax
-   205 000009AB 51                  <1>     push rcx    ;Save this value to keep the buffer length
-   206 000009AC E83E000000          <1>     call decimalise   ;If return with CF=CY, error!
-   207 000009B1 59                  <1>     pop rcx     ;Now print the buffer
-   208 000009B2 4889EF              <1>     mov rdi, rbp
-   209 000009B5 48FFCF              <1>     dec rdi     ;Doesn't affect CF
-   210 000009B8 722C                <1>     jc .errPrint    ;Print a mis-aligned ? to clearly mark an error!
-   211                              <1> .skipLp:
-   212 000009BA 8A1F                <1>     mov bl, byte [rdi]
-   213 000009BC 84DB                <1>     test bl, bl ;Any leading null's get replaced with a space
-   214 000009BE 7514                <1>     jne .printLp
-   215 000009C0 B220                <1>     mov dl, " "
-   216 000009C2 E83CFDFFFF          <1>     call putch
-   217 000009C7 48FFCF              <1>     dec rdi
-   218 000009CA FFC9                <1>     dec ecx
-   219 000009CC 81F901000000        <1>     cmp ecx, 1
-   220 000009D2 75E6                <1>     jne .skipLp   ;Always print 1 byte for size
-   221                              <1> .printLp:
-   222 000009D4 8A17                <1>     mov dl, byte [rdi]
-   223 000009D6 E828FDFFFF          <1>     call putch
-   224 000009DB 48FFCF              <1>     dec rdi
-   225 000009DE FFC9                <1>     dec ecx
-   226 000009E0 75F2                <1>     jnz .printLp
-   227                              <1> .exit:
-   228 000009E2 4889EC              <1>     mov rsp, rbp    ;Deallocate the buffer and exit!
-   229                              <1>     return
+   187                              <1> printDecimalValLB:
+   188                              <1> ;Takes a value in rax and prints it's decimal representation with leading
+   189                              <1> ; blanks and inserts commas where appropriate.
+   190                              <1> ;Input: rax = Value to print
+   191                              <1> ;       rcx = Buffer size to handle (usual values: 17 for max, 13 for dword)
+   192 00000992 4889E5              <1>     mov rbp, rsp
+   193 00000995 4829CC              <1>     sub rsp, rcx ;Allocate the buffer on the stack
+   194 00000998 4889EF              <1>     mov rdi, rbp
+   195 0000099B 4829CF              <1>     sub rdi, rcx
+   196 0000099E 50                  <1>     push rax
+   197 0000099F 51                  <1>     push rcx
+   198 000009A0 57                  <1>     push rdi
+   199 000009A1 31C0                <1>     xor eax, eax
+   200 000009A3 F3AA                <1>     rep stosb   ;Initialise the buffer with a null value
+   201 000009A5 5F                  <1>     pop rdi     ;Now set the ptr to the head of the buffer
+   202 000009A6 59                  <1>     pop rcx
+   203 000009A7 58                  <1>     pop rax
+   204 000009A8 51                  <1>     push rcx    ;Save this value to keep the buffer length
+   205 000009A9 E83E000000          <1>     call decimalise   ;If return with CF=CY, error!
+   206 000009AE 59                  <1>     pop rcx     ;Now print the buffer
+   207 000009AF 4889EF              <1>     mov rdi, rbp
+   208 000009B2 48FFCF              <1>     dec rdi     ;Doesn't affect CF
+   209 000009B5 722C                <1>     jc .errPrint    ;Print a mis-aligned ? to clearly mark an error!
+   210                              <1> .skipLp:
+   211 000009B7 8A1F                <1>     mov bl, byte [rdi]
+   212 000009B9 84DB                <1>     test bl, bl ;Any leading null's get replaced with a space
+   213 000009BB 7514                <1>     jne .printLp
+   214 000009BD B220                <1>     mov dl, " "
+   215 000009BF E83FFDFFFF          <1>     call putch
+   216 000009C4 48FFCF              <1>     dec rdi
+   217 000009C7 FFC9                <1>     dec ecx
+   218 000009C9 81F901000000        <1>     cmp ecx, 1
+   219 000009CF 75E6                <1>     jne .skipLp   ;Always print 1 byte for size
+   220                              <1> .printLp:
+   221 000009D1 8A17                <1>     mov dl, byte [rdi]
+   222 000009D3 E82BFDFFFF          <1>     call putch
+   223 000009D8 48FFCF              <1>     dec rdi
+   224 000009DB FFC9                <1>     dec ecx
+   225 000009DD 75F2                <1>     jnz .printLp
+   226                              <1> .exit:
+   227 000009DF 4889EC              <1>     mov rsp, rbp    ;Deallocate the buffer and exit!
+   228                              <1>     return
     13                              <2> %%_ret:
-    14 000009E5 C3                  <2>  ret
+    14 000009E2 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   230                              <1> .errPrint:
-   231                              <1> ;Print a default ? symbol if an overflow occurs.
-   232 000009E6 B23F                <1>     mov dl, "?"
-   233 000009E8 E816FDFFFF          <1>     call putch
-   234 000009ED EBF3                <1>     jmp short .exit
-   235                              <1> 
-   236                              <1> decimalise:
-   237                              <1> ;Input: rax = value to decimalise
-   238                              <1> ;       rdi -> Ptr to byte buffer to store string in with commas
-   239                              <1> ;       ecx = buffer length
-   240                              <1> ;Output: Buffer @ rdi filled in! 
-   241                              <1> ;       ecx = Number of chars in buffer.
-   242                              <1> ; Warning: If the number of chars in the buffer reaches buffer length,
-   243                              <1> ;   we return with CF=CY. Else, CF=NC.
-   244 000009EF 57                  <1>     push rdi
-   245 000009F0 89CE                <1>     mov esi, ecx    
-   246 000009F2 31C9                <1>     xor ecx, ecx    ;Use cl as buffer length ctr, ch as comma ctr
-   247 000009F4 BB0A000000          <1>     mov ebx, 0Ah    ;Divide by 10
-   248                              <1> .lp:
-   249 000009F9 80FD03              <1>     cmp ch, 3       ;Are we divisible by 3?
-   250 000009FC 750F                <1>     jne .skipSep
-   251 000009FE 4038CE              <1>     cmp sil, cl
-   252 00000A01 742A                <1>     je .exitErr     ;Before we add a comma, do we have space?
-   253                              <1>     ;mov dl, byte [ctryData + countryStruc.thouSep]
-   254                              <1>     ;mov byte [rdi], dl
-   255 00000A03 C6072C              <1>     mov byte [rdi], ","
-   256 00000A06 48FFC7              <1>     inc rdi 
-   257 00000A09 FEC1                <1>     inc cl          ;Inc number of chars
-   258 00000A0B 30ED                <1>     xor ch, ch      ;Reset comma counter
-   259                              <1> .skipSep:
-   260 00000A0D 4038CE              <1>     cmp sil, cl
-   261 00000A10 741B                <1>     je .exitErr     ;Before we add a digit, do we have space?
-   262 00000A12 31D2                <1>     xor edx, edx
-   263 00000A14 48F7F3              <1>     div rbx         ;Divide rax by 10
-   264 00000A17 80C230              <1>     add dl, "0"     
-   265 00000A1A 8817                <1>     mov byte [rdi], dl
-   266 00000A1C 48FFC7              <1>     inc rdi
-   267 00000A1F FEC1                <1>     inc cl          ;Inc number of chars
-   268 00000A21 FEC5                <1>     inc ch          ;Inc to keep track of commas
-   269 00000A23 4885C0              <1>     test rax, rax
-   270 00000A26 75D1                <1>     jnz .lp
-   271                              <1> ;The test cleared CF if we are here
-   272 00000A28 0FB6C9              <1>     movzx ecx, cl
-   273                              <1> .exit:
-   274 00000A2B 5F                  <1>     pop rdi
-   275                              <1>     return
+   229                              <1> .errPrint:
+   230                              <1> ;Print a default ? symbol if an overflow occurs.
+   231 000009E3 B23F                <1>     mov dl, "?"
+   232 000009E5 E819FDFFFF          <1>     call putch
+   233 000009EA EBF3                <1>     jmp short .exit
+   234                              <1> 
+   235                              <1> decimalise:
+   236                              <1> ;Input: rax = value to decimalise
+   237                              <1> ;       rdi -> Ptr to byte buffer to store string in with commas
+   238                              <1> ;       ecx = buffer length
+   239                              <1> ;Output: Buffer @ rdi filled in! 
+   240                              <1> ;       ecx = Number of chars in buffer.
+   241                              <1> ; Warning: If the number of chars in the buffer reaches buffer length,
+   242                              <1> ;   we return with CF=CY. Else, CF=NC.
+   243 000009EC 57                  <1>     push rdi
+   244 000009ED 89CE                <1>     mov esi, ecx    
+   245 000009EF 31C9                <1>     xor ecx, ecx    ;Use cl as buffer length ctr, ch as comma ctr
+   246 000009F1 BB0A000000          <1>     mov ebx, 0Ah    ;Divide by 10
+   247                              <1> .lp:
+   248 000009F6 80FD03              <1>     cmp ch, 3       ;Are we divisible by 3?
+   249 000009F9 750F                <1>     jne .skipSep
+   250 000009FB 4038CE              <1>     cmp sil, cl
+   251 000009FE 742A                <1>     je .exitErr     ;Before we add a comma, do we have space?
+   252                              <1>     ;mov dl, byte [ctryData + countryStruc.thouSep]
+   253                              <1>     ;mov byte [rdi], dl
+   254 00000A00 C6072C              <1>     mov byte [rdi], ","
+   255 00000A03 48FFC7              <1>     inc rdi 
+   256 00000A06 FEC1                <1>     inc cl          ;Inc number of chars
+   257 00000A08 30ED                <1>     xor ch, ch      ;Reset comma counter
+   258                              <1> .skipSep:
+   259 00000A0A 4038CE              <1>     cmp sil, cl
+   260 00000A0D 741B                <1>     je .exitErr     ;Before we add a digit, do we have space?
+   261 00000A0F 31D2                <1>     xor edx, edx
+   262 00000A11 48F7F3              <1>     div rbx         ;Divide rax by 10
+   263 00000A14 80C230              <1>     add dl, "0"     
+   264 00000A17 8817                <1>     mov byte [rdi], dl
+   265 00000A19 48FFC7              <1>     inc rdi
+   266 00000A1C FEC1                <1>     inc cl          ;Inc number of chars
+   267 00000A1E FEC5                <1>     inc ch          ;Inc to keep track of commas
+   268 00000A20 4885C0              <1>     test rax, rax
+   269 00000A23 75D1                <1>     jnz .lp
+   270                              <1> ;The test cleared CF if we are here
+   271 00000A25 0FB6C9              <1>     movzx ecx, cl
+   272                              <1> .exit:
+   273 00000A28 5F                  <1>     pop rdi
+   274                              <1>     return
     13                              <2> %%_ret:
-    14 00000A2C C3                  <2>  ret
+    14 00000A29 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   276                              <1> .exitErr:
-   277 00000A2D F9                  <1>     stc
-   278 00000A2E EBFB                <1>     jmp short .exit
+   275                              <1> .exitErr:
+   276 00000A2A F9                  <1>     stc
+   277 00000A2B EBFB                <1>     jmp short .exit
+   278                              <1> 
    279                              <1> 
-   280                              <1> 
-   281                              <1> cleanBuffer:
-   282                              <1> ;Cleans the sector buffer
-   283 00000A30 488B3D63020000      <1>     mov rdi, qword [pBuffer]
-   284 00000A37 0FB70D6F020000      <1>     movzx ecx, word [sectorSize]
-   285 00000A3E 31C0                <1>     xor eax, eax
-   286 00000A40 F3AA                <1>     rep stosb   ;Clean the Sector buffer
-   287                              <1>     return
+   280                              <1> cleanBuffer:
+   281                              <1> ;Cleans the sector buffer
+   282 00000A2D 488B3D63020000      <1>     mov rdi, qword [pBuffer]
+   283 00000A34 0FB70D6F020000      <1>     movzx ecx, word [sectorSize]
+   284 00000A3B 31C0                <1>     xor eax, eax
+   285 00000A3D F3AA                <1>     rep stosb   ;Clean the Sector buffer
+   286                              <1>     return
     13                              <2> %%_ret:
-    14 00000A42 C3                  <2>  ret
+    14 00000A3F C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   288                              <1> 
-   289                              <1> prepPrintVals:
-   290                              <1> ;Compute secToWrite and initialise secWritten and secPercent.
-   291 00000A43 31C0                <1>     xor eax, eax
-   292 00000A45 48890592020000      <1>     mov qword [secWritten], rax   ;Initialised for when multiple formats
-   293 00000A4C C60593020000FF      <1>     mov byte [secPercent], -1
-   294 00000A53 F6054802000001      <1>     test byte [bFlag1], bitQuick  ;If quick set, won't process rest of disk.
-   295 00000A5A 750F                <1>     jnz .quick
-   296 00000A5C 488B054C020000      <1>     mov rax, qword [numSectors]
-   297 00000A63 4889056C020000      <1>     mov qword [secToWrite], rax
-   298                              <1>     return
+   287                              <1> 
+   288                              <1> prepPrintVals:
+   289                              <1> ;Compute secToWrite and initialise secWritten and secPercent.
+   290 00000A40 31C0                <1>     xor eax, eax
+   291 00000A42 48890592020000      <1>     mov qword [secWritten], rax   ;Initialised for when multiple formats
+   292 00000A49 C60593020000FF      <1>     mov byte [secPercent], -1
+   293 00000A50 F6054802000001      <1>     test byte [bFlag1], bitQuick  ;If quick set, won't process rest of disk.
+   294 00000A57 750F                <1>     jnz .quick
+   295 00000A59 488B054C020000      <1>     mov rax, qword [numSectors]
+   296 00000A60 4889056C020000      <1>     mov qword [secToWrite], rax
+   297                              <1>     return
     13                              <2> %%_ret:
-    14 00000A6A C3                  <2>  ret
+    14 00000A67 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   299                              <1> .quick:
-   300 00000A6B 8B0547020000        <1>     mov eax, dword [fatSize]
-   301 00000A71 48D1E0              <1>     shl rax, 1  ;Multiply this value by 2 for two FATs
-   302 00000A74 4889055B020000      <1>     mov qword [secToWrite], rax
-   303 00000A7B 803D2A02000002      <1>     cmp byte [fatType], fs_fat32
-   304 00000A82 742A                <1>     je .fat32
-   305                              <1> ;Add the sectors for the root directory and single bootsector
-   306 00000A84 488B3532020000      <1>     mov rsi, qword [bpbPtr]
-   307 00000A8B 0FB74606            <1>     movzx eax, word [rsi + bpb.rootEntCnt]  ;Number of 32 bit entries
-   308 00000A8F C1E005              <1>     shl eax, 5  ;Get number of bytes in root dir
-   309 00000A92 0FB736              <1>     movzx esi, word [rsi + bpb.bytsPerSec]
-   310 00000A95 31D2                <1>     xor edx, edx
-   311 00000A97 F7F6                <1>     div esi ;Get number of whole sectors in eax. edx is remainder. 
-   312 00000A99 FFC0                <1>     inc eax ;Add one for the bootsector
-   313 00000A9B 48010534020000      <1>     add qword [secToWrite], rax ;Add whole sectors and bootsector to count
-   314 00000AA2 85D2                <1>     test edx, edx   ;If no remainder (should never be a remainder), exit
-   315                              <1>     retz
+   298                              <1> .quick:
+   299 00000A68 8B0547020000        <1>     mov eax, dword [fatSize]
+   300 00000A6E 48D1E0              <1>     shl rax, 1  ;Multiply this value by 2 for two FATs
+   301 00000A71 4889055B020000      <1>     mov qword [secToWrite], rax
+   302 00000A78 803D2A02000002      <1>     cmp byte [fatType], fs_fat32
+   303 00000A7F 742A                <1>     je .fat32
+   304                              <1> ;Add the sectors for the root directory and single bootsector
+   305 00000A81 488B3532020000      <1>     mov rsi, qword [bpbPtr]
+   306 00000A88 0FB74606            <1>     movzx eax, word [rsi + bpb.rootEntCnt]  ;Number of 32 bit entries
+   307 00000A8C C1E005              <1>     shl eax, 5  ;Get number of bytes in root dir
+   308 00000A8F 0FB736              <1>     movzx esi, word [rsi + bpb.bytsPerSec]
+   309 00000A92 31D2                <1>     xor edx, edx
+   310 00000A94 F7F6                <1>     div esi ;Get number of whole sectors in eax. edx is remainder. 
+   311 00000A96 FFC0                <1>     inc eax ;Add one for the bootsector
+   312 00000A98 48010534020000      <1>     add qword [secToWrite], rax ;Add whole sectors and bootsector to count
+   313 00000A9F 85D2                <1>     test edx, edx   ;If no remainder (should never be a remainder), exit
+   314                              <1>     retz
     41                              <2> cret z
     19                              <3> %%_base:
     20                              <3> %assign baseVar %%_base-$$
@@ -1977,7 +1975,7 @@
     23                              <3>  %ifdef currSegVBase
     24                              <3>  j%+1 short (retOff+currSegVBase)
     25                              <3>  %else
-    26 00000AA4 74(6A)              <3>  j%+1 short retOff
+    26 00000AA1 74(67)              <3>  j%+1 short retOff
     27                              <3>  %endif
     28                              <3>  %else
     29                              <3>  j%-1 short %%a
@@ -1989,272 +1987,272 @@
     35                              <3>  return
     36                              <3> %%a:
     37                              <3>  %endif
-   316 00000AA6 48FF0529020000      <1>     inc qword [secToWrite]  ;Add one for remainder
-   317                              <1>     return
+   315 00000AA3 48FF0529020000      <1>     inc qword [secToWrite]  ;Add one for remainder
+   316                              <1>     return
     13                              <2> %%_ret:
-    14 00000AAD C3                  <2>  ret
+    14 00000AAA C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   318                              <1> .fat32:
-   319                              <1> ;Now add dir sectors and two bootsectors and two fsinfo sectors (4)
-   320 00000AAE 0FB60502020000      <1>     movzx eax, byte [secPerClust]   ;Sectors per cluster (1 cluster for dir)
-   321 00000AB5 0504000000          <1>     add eax, 4  ;Two BS + 2 FSINFO
-   322 00000ABA 48010515020000      <1>     add qword [secToWrite], rax
-   323                              <1>     return
+   317                              <1> .fat32:
+   318                              <1> ;Now add dir sectors and two bootsectors and two fsinfo sectors (4)
+   319 00000AAB 0FB60502020000      <1>     movzx eax, byte [secPerClust]   ;Sectors per cluster (1 cluster for dir)
+   320 00000AB2 0504000000          <1>     add eax, 4  ;Two BS + 2 FSINFO
+   321 00000AB7 48010515020000      <1>     add qword [secToWrite], rax
+   322                              <1>     return
     13                              <2> %%_ret:
-    14 00000AC1 C3                  <2>  ret
+    14 00000ABE C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   324                              <1> 
-   325                              <1> writeFATStartSig:
-   326                              <1> ;Writes the first two cluster blocks with the necessary signature
-   327                              <1> ;Input: rdi -> Start of the FAT sector
-   328 00000AC2 50                  <1>     push rax
-   329 00000AC3 53                  <1>     push rbx
-   330 00000AC4 488B1DF2010000      <1>     mov rbx, qword [bpbPtr]
-   331 00000ACB 0FBE430A            <1>     movsx eax, byte [rbx + bpb.media]   ;Get the media byte, sign extend
-   332 00000ACF 803DD601000001      <1>     cmp byte [fatType], fs_fat16
-   333 00000AD6 7407                <1>     je .fat16
-   334 00000AD8 7709                <1>     ja .fat32
-   335                              <1> ;Fat 12 here
-   336 00000ADA 25FFFFFF00          <1>     and eax, 00FFFFFFh  ;Save only low three bytes
-   337                              <1> .fat16:
-   338 00000ADF 8907                <1>     mov dword [rdi], eax
-   339 00000AE1 EB0A                <1>     jmp short .exit
-   340                              <1> .fat32:
-   341 00000AE3 8907                <1>     mov dword [rdi], eax
-   342 00000AE5 B8FFFFFFFF          <1>     mov eax, -1
-   343 00000AEA 894704              <1>     mov dword [rdi + 4], eax
-   344                              <1> .exit:
-   345 00000AED 5B                  <1>     pop rbx
-   346 00000AEE 58                  <1>     pop rax
-   347                              <1>     return
+   323                              <1> 
+   324                              <1> writeFATStartSig:
+   325                              <1> ;Writes the first two cluster blocks with the necessary signature
+   326                              <1> ;Input: rdi -> Start of the FAT sector
+   327 00000ABF 50                  <1>     push rax
+   328 00000AC0 53                  <1>     push rbx
+   329 00000AC1 488B1DF2010000      <1>     mov rbx, qword [bpbPtr]
+   330 00000AC8 0FBE430A            <1>     movsx eax, byte [rbx + bpb.media]   ;Get the media byte, sign extend
+   331 00000ACC 803DD601000001      <1>     cmp byte [fatType], fs_fat16
+   332 00000AD3 7407                <1>     je .fat16
+   333 00000AD5 7709                <1>     ja .fat32
+   334                              <1> ;Fat 12 here
+   335 00000AD7 25FFFFFF00          <1>     and eax, 00FFFFFFh  ;Save only low three bytes
+   336                              <1> .fat16:
+   337 00000ADC 8907                <1>     mov dword [rdi], eax
+   338 00000ADE EB0A                <1>     jmp short .exit
+   339                              <1> .fat32:
+   340 00000AE0 8907                <1>     mov dword [rdi], eax
+   341 00000AE2 B8FFFFFFFF          <1>     mov eax, -1
+   342 00000AE7 894704              <1>     mov dword [rdi + 4], eax
+   343                              <1> .exit:
+   344 00000AEA 5B                  <1>     pop rbx
+   345 00000AEB 58                  <1>     pop rax
+   346                              <1>     return
     13                              <2> %%_ret:
-    14 00000AEF C3                  <2>  ret
+    14 00000AEC C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   348                              <1> 
-   349                              <1> getVolumeID:
-   350                              <1> ;Uses the time to set a volume ID
-   351                              <1> ;Output: eax = VolumeID
-   352                              <1> ;Preserves rbx!
-   353 00000AF0 53                  <1>     push rbx
-   354 00000AF1 B8002C0000          <1>     mov eax, 2C00h     ;Get Time in cx:dx
-   355 00000AF6 CD21                <1>     int 21h
-   356 00000AF8 0FB7DA              <1>     movzx ebx, dx
-   357 00000AFB 0FB7C1              <1>     movzx eax, cx
-   358 00000AFE C1E310              <1>     shl ebx, 10h
-   359 00000B01 09D8                <1>     or eax, ebx
-   360 00000B03 5B                  <1>     pop rbx
-   361                              <1>     return
+   347                              <1> 
+   348                              <1> getVolumeID:
+   349                              <1> ;Uses the time to set a volume ID
+   350                              <1> ;Output: eax = VolumeID
+   351                              <1> ;Preserves rbx!
+   352 00000AED 53                  <1>     push rbx
+   353 00000AEE B8002C0000          <1>     mov eax, 2C00h     ;Get Time in cx:dx
+   354 00000AF3 CD21                <1>     int 21h
+   355 00000AF5 0FB7DA              <1>     movzx ebx, dx
+   356 00000AF8 0FB7C1              <1>     movzx eax, cx
+   357 00000AFB C1E310              <1>     shl ebx, 10h
+   358 00000AFE 09D8                <1>     or eax, ebx
+   359 00000B00 5B                  <1>     pop rbx
+   360                              <1>     return
     13                              <2> %%_ret:
-    14 00000B04 C3                  <2>  ret
+    14 00000B01 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   362                              <1> 
-   363                              <1> computeFAT:
-   364                              <1> ;Returns if FAT12/16/32 should be used for volume parameters input.
-   365                              <1> ;Output: ecx = 0 => FAT 12, ecx = 1 => FAT 16, ecx = 2 => FAT 32
-   366                              <1> ;All other regs preserved
-   367 00000B05 50                  <1>     push rax
-   368 00000B06 52                  <1>     push rdx
-   369 00000B07 57                  <1>     push rdi
-   370 00000B08 488B3DAE010000      <1>     mov rdi, [bpbPtr]   ;Get ptr to the returned bpb
-   371                              <1> ;Compute space taken by fats
-   372 00000B0F 0FB7470B            <1>     movzx eax, word [rdi + bpb.FATsz16]
-   373 00000B13 0FB64F05            <1>     movzx ecx, byte [rdi + bpb.numFATs]
-   374 00000B17 F7E1                <1>     mul ecx ;Get number of sectors occupied by all the fat copies
-   375 00000B19 66034703            <1>     add ax, word [rdi + bpb.revdSecCnt] ;Add the number of reserved sectors
-   376 00000B1D 66034706            <1>     add ax, word [rdi + bpb.rootEntCnt] ;Add the root dir sectors
-   377 00000B21 50                  <1>     push rax    ;Save the non-data space
-   378                              <1> ;Get the total number of sectors on the volume in eax
-   379 00000B22 0FB74708            <1>     movzx eax, word [rdi + bpb.totSec16]
-   380 00000B26 8B4F15              <1>     mov ecx, dword [rdi + bpb.totSec32]
-   381 00000B29 85C0                <1>     test eax, eax
-   382 00000B2B 0F44C1              <1>     cmovz eax, ecx  ;Move ecx to to eax if eax is zero
-   383 00000B2E 59                  <1>     pop rcx
-   384 00000B2F 29C8                <1>     sub eax, ecx    ;Get the data space only in eax.
-   385 00000B31 0FB64F02            <1>     movzx ecx, byte [rdi + bpb.secPerClus]
-   386 00000B35 85C9                <1>     test ecx, ecx
-   387 00000B37 67E31F              <1>     jecxz .err  ;If this is zero, due to malformed field, escape. Use FAT16
-   388 00000B3A 31D2                <1>     xor edx, edx
-   389 00000B3C F7F1                <1>     div ecx         ;Get number of clusters in eax
-   390                              <1> ;Now setup the return value in ecx
-   391 00000B3E B902000000          <1>     mov ecx, 2  ;FAT 32 marker
-   392 00000B43 3DF5FF0000          <1>     cmp eax, fat16MaxClustCnt
-   393 00000B48 730B                <1>     jae .exit
-   394 00000B4A FFC9                <1>     dec ecx     ;FAT 16 marker
-   395 00000B4C 3DF50F0000          <1>     cmp eax, fat12MaxClustCnt
-   396 00000B51 7302                <1>     jae .exit
-   397 00000B53 FFC9                <1>     dec ecx     ;FAT 12 marker
-   398                              <1> .exit:
-   399 00000B55 5F                  <1>     pop rdi
-   400 00000B56 5A                  <1>     pop rdx
-   401 00000B57 58                  <1>     pop rax
-   402                              <1>     return
+   361                              <1> 
+   362                              <1> computeFAT:
+   363                              <1> ;Returns if FAT12/16/32 should be used for volume parameters input.
+   364                              <1> ;Output: ecx = 0 => FAT 12, ecx = 1 => FAT 16, ecx = 2 => FAT 32
+   365                              <1> ;All other regs preserved
+   366 00000B02 50                  <1>     push rax
+   367 00000B03 52                  <1>     push rdx
+   368 00000B04 57                  <1>     push rdi
+   369 00000B05 488B3DAE010000      <1>     mov rdi, [bpbPtr]   ;Get ptr to the returned bpb
+   370                              <1> ;Compute space taken by fats
+   371 00000B0C 0FB7470B            <1>     movzx eax, word [rdi + bpb.FATsz16]
+   372 00000B10 0FB64F05            <1>     movzx ecx, byte [rdi + bpb.numFATs]
+   373 00000B14 F7E1                <1>     mul ecx ;Get number of sectors occupied by all the fat copies
+   374 00000B16 66034703            <1>     add ax, word [rdi + bpb.revdSecCnt] ;Add the number of reserved sectors
+   375 00000B1A 66034706            <1>     add ax, word [rdi + bpb.rootEntCnt] ;Add the root dir sectors
+   376 00000B1E 50                  <1>     push rax    ;Save the non-data space
+   377                              <1> ;Get the total number of sectors on the volume in eax
+   378 00000B1F 0FB74708            <1>     movzx eax, word [rdi + bpb.totSec16]
+   379 00000B23 8B4F15              <1>     mov ecx, dword [rdi + bpb.totSec32]
+   380 00000B26 85C0                <1>     test eax, eax
+   381 00000B28 0F44C1              <1>     cmovz eax, ecx  ;Move ecx to to eax if eax is zero
+   382 00000B2B 59                  <1>     pop rcx
+   383 00000B2C 29C8                <1>     sub eax, ecx    ;Get the data space only in eax.
+   384 00000B2E 0FB64F02            <1>     movzx ecx, byte [rdi + bpb.secPerClus]
+   385 00000B32 85C9                <1>     test ecx, ecx
+   386 00000B34 67E31F              <1>     jecxz .err  ;If this is zero, due to malformed field, escape. Use FAT16
+   387 00000B37 31D2                <1>     xor edx, edx
+   388 00000B39 F7F1                <1>     div ecx         ;Get number of clusters in eax
+   389                              <1> ;Now setup the return value in ecx
+   390 00000B3B B902000000          <1>     mov ecx, 2  ;FAT 32 marker
+   391 00000B40 3DF5FF0000          <1>     cmp eax, fat16MaxClustCnt
+   392 00000B45 730B                <1>     jae .exit
+   393 00000B47 FFC9                <1>     dec ecx     ;FAT 16 marker
+   394 00000B49 3DF50F0000          <1>     cmp eax, fat12MaxClustCnt
+   395 00000B4E 7302                <1>     jae .exit
+   396 00000B50 FFC9                <1>     dec ecx     ;FAT 12 marker
+   397                              <1> .exit:
+   398 00000B52 5F                  <1>     pop rdi
+   399 00000B53 5A                  <1>     pop rdx
+   400 00000B54 58                  <1>     pop rax
+   401                              <1>     return
     13                              <2> %%_ret:
-    14 00000B58 C3                  <2>  ret
+    14 00000B55 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
-   403                              <1> .err:
-   404                              <1> ;To prevent a divide by 0 error!
-   405 00000B59 FFC9                <1>     dec ecx
-   406 00000B5B EBF8                <1>     jmp short .exit
-   407                              <1> 
-   408                              <1> computeFATSize:
-   409                              <1> ; Reads from the bpb in rdi. Applies the following algorithm
-   410                              <1> ; RootDirSectors = ((BPB_RootEntCnt * 32) + (BPB_BytsPerSec – 1)) / BPB_BytsPerSec;
-   411                              <1> ; TmpVal1 = DskSize – (BPB_ResvdSecCnt + RootDirSectors);
-   412                              <1> ; TmpVal2 = (256 * BPB_SecPerClus) + BPB_NumFATs;
-   413                              <1> ; If(FATType == FAT32)
-   414                              <1> ;   TmpVal2 = TmpVal2 / 2;
-   415                              <1> ; FATSz = (TMPVal1 + (TmpVal2 – 1)) / TmpVal2;
-   416                              <1> ;Input:
-   417                              <1> ;   rdi = Pointer to the head of the BPB we are using
-   418                              <1> ;Returns: 
-   419                              <1> ;   eax = Number of sectors per FAT needed. Low word only valid for FAT12/16
-   420 00000B5D 53                  <1>     push rbx
-   421 00000B5E 51                  <1>     push rcx
-   422 00000B5F 52                  <1>     push rdx
-   423 00000B60 57                  <1>     push rdi
-   424                              <1>     
-   425 00000B61 0FB74706            <1>     movzx eax, word [rdi + bpb.rootEntCnt]
-   426 00000B65 C1E005              <1>     shl eax, 5  ;Multiply by 32
-   427 00000B68 0FB71F              <1>     movzx ebx, word [rdi + bpb.bytsPerSec]
-   428 00000B6B FFCB                <1>     dec ebx
-   429 00000B6D 01D8                <1>     add eax, ebx
-   430 00000B6F FFC3                <1>     inc ebx
-   431 00000B71 31D2                <1>     xor edx, edx
-   432 00000B73 F7F3                <1>     div ebx
-   433 00000B75 89C2                <1>     mov edx, eax    ;edx = RootDirSectors
-   434                              <1> 
-   435 00000B77 0FB74708            <1>     movzx eax, word [rdi + bpb.totSec16]
-   436 00000B7B 8B5F15              <1>     mov ebx, dword [rdi + bpb.totSec32]
-   437 00000B7E 85C0                <1>     test eax, eax   ;If totSec16 is 0, move totSec32 into eax
-   438 00000B80 0F44C3              <1>     cmovz eax, ebx
-   439 00000B83 0FB75F03            <1>     movzx ebx, word [rdi + bpb.revdSecCnt]
-   440 00000B87 01D3                <1>     add ebx, edx    ;Add RootDirSectors
-   441 00000B89 29D8                <1>     sub eax, ebx
-   442 00000B8B 89C1                <1>     mov ecx, eax    ;ecx = TmpVal1
-   443                              <1> 
-   444 00000B8D 0FB64702            <1>     movzx eax, byte [rdi + bpb.secPerClus]
-   445 00000B91 C1E008              <1>     shl eax, 8  ;multiply by 256
-   446 00000B94 0FB65F05            <1>     movzx ebx, byte [rdi + bpb.numFATs]
-   447 00000B98 01C3                <1>     add ebx, eax    ;ebx = TmpVal2
-   448                              <1> 
-   449 00000B9A 803D0B01000002      <1>     cmp byte [fatType], fs_fat32
-   450 00000BA1 7502                <1>     jne .notFat32
-   451 00000BA3 D1EB                <1>     shr ebx, 1  ;Divide by 2
-   452                              <1> .notFat32: 
-   453 00000BA5 89C8                <1>     mov eax, ecx    ;TmpVal1
-   454 00000BA7 FFCB                <1>     dec ebx
-   455 00000BA9 01D8                <1>     add eax, ebx    ;TmpVal1 + (TmpVal2 - 1)
-   456 00000BAB FFC3                <1>     inc ebx
-   457 00000BAD 31D2                <1>     xor edx, edx
-   458 00000BAF F7F3                <1>     div ebx ;Exit with eax = number of sectors needed per FAT
-   459                              <1> .exit:
-   460 00000BB1 5F                  <1>     pop rdi
-   461 00000BB2 5A                  <1>     pop rdx
-   462 00000BB3 59                  <1>     pop rcx
-   463 00000BB4 5B                  <1>     pop rbx
-   464                              <1>     return
+   402                              <1> .err:
+   403                              <1> ;To prevent a divide by 0 error!
+   404 00000B56 FFC9                <1>     dec ecx
+   405 00000B58 EBF8                <1>     jmp short .exit
+   406                              <1> 
+   407                              <1> computeFATSize:
+   408                              <1> ; Reads from the bpb in rdi. Applies the following algorithm
+   409                              <1> ; RootDirSectors = ((BPB_RootEntCnt * 32) + (BPB_BytsPerSec – 1)) / BPB_BytsPerSec;
+   410                              <1> ; TmpVal1 = DskSize – (BPB_ResvdSecCnt + RootDirSectors);
+   411                              <1> ; TmpVal2 = (256 * BPB_SecPerClus) + BPB_NumFATs;
+   412                              <1> ; If(FATType == FAT32)
+   413                              <1> ;   TmpVal2 = TmpVal2 / 2;
+   414                              <1> ; FATSz = (TMPVal1 + (TmpVal2 – 1)) / TmpVal2;
+   415                              <1> ;Input:
+   416                              <1> ;   rdi = Pointer to the head of the BPB we are using
+   417                              <1> ;Returns: 
+   418                              <1> ;   eax = Number of sectors per FAT needed. Low word only valid for FAT12/16
+   419 00000B5A 53                  <1>     push rbx
+   420 00000B5B 51                  <1>     push rcx
+   421 00000B5C 52                  <1>     push rdx
+   422 00000B5D 57                  <1>     push rdi
+   423                              <1>     
+   424 00000B5E 0FB74706            <1>     movzx eax, word [rdi + bpb.rootEntCnt]
+   425 00000B62 C1E005              <1>     shl eax, 5  ;Multiply by 32
+   426 00000B65 0FB71F              <1>     movzx ebx, word [rdi + bpb.bytsPerSec]
+   427 00000B68 FFCB                <1>     dec ebx
+   428 00000B6A 01D8                <1>     add eax, ebx
+   429 00000B6C FFC3                <1>     inc ebx
+   430 00000B6E 31D2                <1>     xor edx, edx
+   431 00000B70 F7F3                <1>     div ebx
+   432 00000B72 89C2                <1>     mov edx, eax    ;edx = RootDirSectors
+   433                              <1> 
+   434 00000B74 0FB74708            <1>     movzx eax, word [rdi + bpb.totSec16]
+   435 00000B78 8B5F15              <1>     mov ebx, dword [rdi + bpb.totSec32]
+   436 00000B7B 85C0                <1>     test eax, eax   ;If totSec16 is 0, move totSec32 into eax
+   437 00000B7D 0F44C3              <1>     cmovz eax, ebx
+   438 00000B80 0FB75F03            <1>     movzx ebx, word [rdi + bpb.revdSecCnt]
+   439 00000B84 01D3                <1>     add ebx, edx    ;Add RootDirSectors
+   440 00000B86 29D8                <1>     sub eax, ebx
+   441 00000B88 89C1                <1>     mov ecx, eax    ;ecx = TmpVal1
+   442                              <1> 
+   443 00000B8A 0FB64702            <1>     movzx eax, byte [rdi + bpb.secPerClus]
+   444 00000B8E C1E008              <1>     shl eax, 8  ;multiply by 256
+   445 00000B91 0FB65F05            <1>     movzx ebx, byte [rdi + bpb.numFATs]
+   446 00000B95 01C3                <1>     add ebx, eax    ;ebx = TmpVal2
+   447                              <1> 
+   448 00000B97 803D0B01000002      <1>     cmp byte [fatType], fs_fat32
+   449 00000B9E 7502                <1>     jne .notFat32
+   450 00000BA0 D1EB                <1>     shr ebx, 1  ;Divide by 2
+   451                              <1> .notFat32: 
+   452 00000BA2 89C8                <1>     mov eax, ecx    ;TmpVal1
+   453 00000BA4 FFCB                <1>     dec ebx
+   454 00000BA6 01D8                <1>     add eax, ebx    ;TmpVal1 + (TmpVal2 - 1)
+   455 00000BA8 FFC3                <1>     inc ebx
+   456 00000BAA 31D2                <1>     xor edx, edx
+   457 00000BAC F7F3                <1>     div ebx ;Exit with eax = number of sectors needed per FAT
+   458                              <1> .exit:
+   459 00000BAE 5F                  <1>     pop rdi
+   460 00000BAF 5A                  <1>     pop rdx
+   461 00000BB0 59                  <1>     pop rcx
+   462 00000BB1 5B                  <1>     pop rbx
+   463                              <1>     return
     13                              <2> %%_ret:
-    14 00000BB5 C3                  <2>  ret
+    14 00000BB2 C3                  <2>  ret
     15                              <2> %assign retOff %%_ret-$$
     90                                  %include "./src/fmtExit.asm"
      1                              <1> ;All exits are here, good or bad
      2                              <1> 
      3                              <1> exitOk:
-     4 00000BB6 488D15CA050000      <1>     lea rdx, crlfStr    ;Print a CRLF on exit!
-     5 00000BBD E849FBFFFF          <1>     call printString
-     6 00000BC2 B8004C0000          <1>     mov eax, 4C00h
-     7 00000BC7 CD21                <1>     int 21h
+     4 00000BB3 488D15CA050000      <1>     lea rdx, crlfStr    ;Print a CRLF on exit!
+     5 00000BBA E84CFBFFFF          <1>     call printString
+     6 00000BBF B8004C0000          <1>     mov eax, 4C00h
+     7 00000BC4 CD21                <1>     int 21h
      8                              <1> exitError:
-     9 00000BC9 B8044C0000          <1>     mov eax, 4C04h
-    10 00000BCE CD21                <1>     int 21h
+     9 00000BC6 B8044C0000          <1>     mov eax, 4C04h
+    10 00000BCB CD21                <1>     int 21h
     11                              <1> exitNoFormatFixed:
-    12 00000BD0 B8054C0000          <1>     mov eax, 4C05h
-    13 00000BD5 CD21                <1>     int 21h
+    12 00000BCD B8054C0000          <1>     mov eax, 4C05h
+    13 00000BD2 CD21                <1>     int 21h
     14                              <1> 
     15                              <1> ;----------------------------------------
     16                              <1> ;          Error Exit wrappers          :
     17                              <1> ;----------------------------------------
     18                              <1> ;If we need "Format failed" printed, print before jumping here
     19                              <1> badBtSctrExit:
-    20 00000BD7 E8C3FAFFFF          <1>     call restoreBpb     ;Handle BPB driver state restore
-    21 00000BDC 488D1511060000      <1>     lea rdx, badFmtFail
-    22 00000BE3 E823FBFFFF          <1>     call printString
-    23 00000BE8 488D1523040000      <1>     lea rdx, badBtStrWr 
-    24 00000BEF E988000000          <1>     jmp badExitCmn
+    20 00000BD4 E8C6FAFFFF          <1>     call restoreBpb     ;Handle BPB driver state restore
+    21 00000BD9 488D1511060000      <1>     lea rdx, badFmtFail
+    22 00000BE0 E826FBFFFF          <1>     call printString
+    23 00000BE5 488D1523040000      <1>     lea rdx, badBtStrWr 
+    24 00000BEC E988000000          <1>     jmp badExitCmn
     25                              <1> badFATExit:
-    26 00000BF4 488D15F9050000      <1>     lea rdx, badFmtFail
-    27 00000BFB E80BFBFFFF          <1>     call printString
-    28 00000C00 488D1552040000      <1>     lea rdx, badFATWr
-    29 00000C07 EB73                <1>     jmp short badExitCmn
+    26 00000BF1 488D15F9050000      <1>     lea rdx, badFmtFail
+    27 00000BF8 E80EFBFFFF          <1>     call printString
+    28 00000BFD 488D1552040000      <1>     lea rdx, badFATWr
+    29 00000C04 EB73                <1>     jmp short badExitCmn
     30                              <1> badDirExit:
-    31 00000C09 488D15E4050000      <1>     lea rdx, badFmtFail
-    32 00000C10 E8F6FAFFFF          <1>     call printString
-    33 00000C15 488D1551040000      <1>     lea rdx, badDirWr
-    34 00000C1C EB5E                <1>     jmp short badExitCmn
+    31 00000C06 488D15E4050000      <1>     lea rdx, badFmtFail
+    32 00000C0D E8F9FAFFFF          <1>     call printString
+    33 00000C12 488D1551040000      <1>     lea rdx, badDirWr
+    34 00000C19 EB5E                <1>     jmp short badExitCmn
     35                              <1> badFSINFOExit:
-    36 00000C1E 488D15CF050000      <1>     lea rdx, badFmtFail
-    37 00000C25 E8E1FAFFFF          <1>     call printString
-    38 00000C2A 488D15F8030000      <1>     lea rdx, badFSInfoWr
-    39 00000C31 EB49                <1>     jmp short badExitCmn
+    36 00000C1B 488D15CF050000      <1>     lea rdx, badFmtFail
+    37 00000C22 E8E4FAFFFF          <1>     call printString
+    38 00000C27 488D15F8030000      <1>     lea rdx, badFSInfoWr
+    39 00000C2E EB49                <1>     jmp short badExitCmn
     40                              <1> badIOCTLExit:
-    41 00000C33 488D15BA050000      <1>     lea rdx, badFmtFail
-    42 00000C3A E8CCFAFFFF          <1>     call printString
+    41 00000C30 488D15BA050000      <1>     lea rdx, badFmtFail
+    42 00000C37 E8CFFAFFFF          <1>     call printString
     43                              <1> .alt:
-    44 00000C3F 488D15FD030000      <1>     lea rdx, badIOCTL
-    45 00000C46 EB34                <1>     jmp short badExitCmn
+    44 00000C3C 488D15FD030000      <1>     lea rdx, badIOCTL
+    45 00000C43 EB34                <1>     jmp short badExitCmn
     46                              <1> badVolExit:
-    47 00000C48 488D156B030000      <1>     lea rdx, badVolBig
-    48 00000C4F EB2B                <1>     jmp short badExitCmn
+    47 00000C45 488D156B030000      <1>     lea rdx, badVolBig
+    48 00000C4C EB2B                <1>     jmp short badExitCmn
     49                              <1> badSecSizeExit:
-    50 00000C51 488D157F030000      <1>     lea rdx, badSecSize
-    51 00000C58 EB22                <1>     jmp short badExitCmn
+    50 00000C4E 488D157F030000      <1>     lea rdx, badSecSize
+    51 00000C55 EB22                <1>     jmp short badExitCmn
     52                              <1> badNetExit:
-    53 00000C5A 488D15E4020000      <1>     lea rdx, badNetDrv
-    54 00000C61 EB19                <1>     jmp short badExitCmn
+    53 00000C57 488D15E4020000      <1>     lea rdx, badNetDrv
+    54 00000C5E EB19                <1>     jmp short badExitCmn
     55                              <1> badSubstExit:
-    56 00000C63 488D15FB020000      <1>     lea rdx, badSubsDrv
-    57 00000C6A EB10                <1>     jmp short badExitCmn
+    56 00000C60 488D15FB020000      <1>     lea rdx, badSubsDrv
+    57 00000C67 EB10                <1>     jmp short badExitCmn
     58                              <1> badJoinExit:
-    59 00000C6C 488D1512030000      <1>     lea rdx, badJoinDrv
-    60 00000C73 EB07                <1>     jmp short badExitCmn
+    59 00000C69 488D1512030000      <1>     lea rdx, badJoinDrv
+    60 00000C70 EB07                <1>     jmp short badExitCmn
     61                              <1> badExitGen:
-    62 00000C75 488D1528030000      <1>     lea rdx, badGeneric
+    62 00000C72 488D1528030000      <1>     lea rdx, badGeneric
     63                              <1> badExitCmn:
     64                              <1> ;Jumped to with rdx = Error message or 0 if no message
-    65 00000C7C E80FFBFFFF          <1>     call dosCrit1Exit   ;Just returns if not in a critical section
-    66 00000C81 4885D2              <1>     test rdx, rdx
-    67 00000C84 7405                <1>     jz .noPrint
-    68 00000C86 E880FAFFFF          <1>     call printString
+    65 00000C79 E812FBFFFF          <1>     call dosCrit1Exit   ;Just returns if not in a critical section
+    66 00000C7E 4885D2              <1>     test rdx, rdx
+    67 00000C81 7405                <1>     jz .noPrint
+    68 00000C83 E883FAFFFF          <1>     call printString
     69                              <1> .noPrint:
-    70 00000C8B E939FFFFFF          <1>     jmp exitError
+    70 00000C88 E939FFFFFF          <1>     jmp exitError
     91                                  %include "./dat/fmtData.asm"
      1                              <1> ;Data area here
-     2 00000C90 FF                  <1> fmtDrive    db -1       ;Drive we are operating on (0 based)
-     3 00000C91 00                  <1> inCrit      db 0        ;If not 0, in a critical section, must exit
-     4 00000C92 0000000000000000    <1> cdsPtr      dq 0        ;CDS ptr here
-     5 00000C9A 0000000000000000    <1> pBuffer  dq 0        ;Ptr to the buffer area
-     6 00000CA2 01                  <1> bFlag1      db 0 | bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
-     7 00000CA3 0000000000000000    <1> pBtLdr      dq 0        ;Point to the bootloader to use
+     2 00000C8D FF                  <1> fmtDrive    db -1       ;Drive we are operating on (0 based)
+     3 00000C8E 00                  <1> inCrit      db 0        ;If not 0, in a critical section, must exit
+     4 00000C8F 0000000000000000    <1> cdsPtr      dq 0        ;CDS ptr here
+     5 00000C97 0000000000000000    <1> pBuffer  dq 0        ;Ptr to the buffer area
+     6 00000C9F 01                  <1> bFlag1      db 0 | bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
+     7 00000CA0 0000000000000000    <1> pBtLdr      dq 0        ;Point to the bootloader to use
      8                              <1> 
      9                              <1> ;Format Data here
-    10 00000CAB 00                  <1> remDev      db 0        ;0 = Removable, -1 = Fixed
-    11 00000CAC FF                  <1> fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
-    12 00000CAD 0002                <1> sectorSize  dw 512      ;Sector size in bytes: HARDCODED BYTES PER SECTOR VALUE
-    13 00000CAF 0000000000000000    <1> numSectors  dq 0        ;Number of sectors in volume
-    14 00000CB7 00                  <1> secPerClust db 0        ;Copy the sectors per cluster over
-    15 00000CB8 00000000            <1> fatSize     dd 0        ;FAT size (number of sectors per FAT)
-    16 00000CBC F0                  <1> media       db 0F0h     ;Media type (F0h or F8h)
-    17 00000CBD 0000000000000000    <1> bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
-    18 00000CC5 00                  <1> bpbSize     db 0        ;Size of the BPB
-    19 00000CC6 00000000            <1> hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
-    20 00000CCA 00000000            <1> f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
-    21 00000CCE 00000000            <1> dSerNum     dd 0        ;Serial number
-    22 00000CD2 00000000            <1> dBadClust   dd 0        ;Number of bad clusters on disk
+    10 00000CA8 00                  <1> remDev      db 0        ;0 = Removable, -1 = Fixed
+    11 00000CA9 FF                  <1> fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
+    12 00000CAA 0002                <1> sectorSize  dw 512      ;Sector size in bytes: HARDCODED BYTES PER SECTOR VALUE
+    13 00000CAC 0000000000000000    <1> numSectors  dq 0        ;Number of sectors in volume
+    14 00000CB4 00                  <1> secPerClust db 0        ;Copy the sectors per cluster over
+    15 00000CB5 00000000            <1> fatSize     dd 0        ;FAT size (number of sectors per FAT)
+    16 00000CB9 F0                  <1> media       db 0F0h     ;Media type (F0h or F8h)
+    17 00000CBA 0000000000000000    <1> bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
+    18 00000CC2 00                  <1> bpbSize     db 0        ;Size of the BPB
+    19 00000CC3 00000000            <1> hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
+    20 00000CC7 00000000            <1> f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
+    21 00000CCB 00000000            <1> dSerNum     dd 0        ;Serial number
+    22 00000CCF 00000000            <1> dBadClust   dd 0        ;Number of bad clusters on disk
     23                              <1> 
     24                              <1> ;Tracking vars, used only for updating the percentage message!
-    25 00000CD6 0000000000000000    <1> secToWrite  dq 0        ;Number of sectors to write (neq numSectors if /Q set)
-    26 00000CDE 0000000000000000    <1> secWritten  dq 0        ;Number of sectors written so far
-    27 00000CE6 FF                  <1> secPercent  db -1       ;The previous percentage (-1 not initialised)
+    25 00000CD3 0000000000000000    <1> secToWrite  dq 0        ;Number of sectors to write (neq numSectors if /Q set)
+    26 00000CDB 0000000000000000    <1> secWritten  dq 0        ;Number of sectors written so far
+    27 00000CE3 FF                  <1> secPercent  db -1       ;The previous percentage (-1 not initialised)
     28                              <1> 
     29                              <1> ;Tables
     30                              <1> ;All data here is RO.
@@ -2262,27 +2260,27 @@
     32                              <1> ;This table assumes a 512 byte sector (fair assumption) but we do a byte size
     33                              <1> ; comparison in format to eventually allow for other sized sectors
     34                              <1> fat16ClusterTable:
-    35 00000CE7 00A04100            <1>     dd 8400*512 ;Disks up to 4.1MB, must use FAT12 with 0.5 K clusters
-    36 00000CEB 01                  <1>     db 1    ;ALL FAT12 uses 1, unless it is a preexisting meddesc type medium
-    37 00000CEC 0050FF00            <1>     dd 32680*512    ; Disk up to 16MB, 1K clusters
-    38 00000CF0 02                  <1>     db 2
-    39 00000CF1 00000008            <1>     dd 262144*512   ; Disk up to 128MB, 2K clusters
-    40 00000CF5 04                  <1>     db 4
-    41 00000CF6 00000010            <1>     dd 524288*512   ; Disk up to 256MB, 4K clusters
-    42 00000CFA 08                  <1>     db 8
-    43 00000CFB 00000020            <1>     dd 1048576*512  ; Disk up to 512Mb, 8K clusters
-    44 00000CFF 10                  <1>     db 16
+    35 00000CE4 00A04100            <1>     dd 8400*512 ;Disks up to 4.1MB, must use FAT12 with 0.5 K clusters
+    36 00000CE8 01                  <1>     db 1    ;ALL FAT12 uses 1, unless it is a preexisting meddesc type medium
+    37 00000CE9 0050FF00            <1>     dd 32680*512    ; Disk up to 16MB, 1K clusters
+    38 00000CED 02                  <1>     db 2
+    39 00000CEE 00000008            <1>     dd 262144*512   ; Disk up to 128MB, 2K clusters
+    40 00000CF2 04                  <1>     db 4
+    41 00000CF3 00000010            <1>     dd 524288*512   ; Disk up to 256MB, 4K clusters
+    42 00000CF7 08                  <1>     db 8
+    43 00000CF8 00000020            <1>     dd 1048576*512  ; Disk up to 512Mb, 8K clusters
+    44 00000CFC 10                  <1>     db 16
     45                              <1> 
     46                              <1> ;Here DWORD becomes QWORD
     47                              <1> fat32ClusterTable:
-    48 00000D00 0000000002000000    <1>     dq 16777216*512 ; Disk up to 8GB, 4K clusters
-    49 00000D08 08                  <1>     db 8        
-    50 00000D09 0000000004000000    <1>     dq 33554432*512 ; Disk up to 16GB, 8K clusters
-    51 00000D11 10                  <1>     db 16
-    52 00000D12 0000000008000000    <1>     dq 67108864*512 ; Disk up to 32Gb, 16K clusters
-    53 00000D1A 20                  <1>     db 32
-    54 00000D1B FFFFFFFFFFFFFFFF    <1>     dq -1       ; Disk up to 2TB, 32K clusters
-    55 00000D23 40                  <1>     db 64
+    48 00000CFD 0000000002000000    <1>     dq 16777216*512 ; Disk up to 8GB, 4K clusters
+    49 00000D05 08                  <1>     db 8        
+    50 00000D06 0000000004000000    <1>     dq 33554432*512 ; Disk up to 16GB, 8K clusters
+    51 00000D0E 10                  <1>     db 16
+    52 00000D0F 0000000008000000    <1>     dq 67108864*512 ; Disk up to 32Gb, 16K clusters
+    53 00000D17 20                  <1>     db 32
+    54 00000D18 FFFFFFFFFFFFFFFF    <1>     dq -1       ; Disk up to 2TB, 32K clusters
+    55 00000D20 40                  <1>     db 64
     56                              <1> 
     57                              <1> ;Bpbs are for remdevs of 1.44Mb and 2.88Mb capacity.
     58                              <1> ;We have these built-in so that if (when supported) /F:1.44 or /F:2.88
@@ -2321,329 +2319,329 @@
     91                              <1> ;Generic BPBs here, fields set to -1 must be edited in the copy made.
     92                              <1> genericBPB12:
     93                              <1>     istruc bpb
-    94 00000D24 FFFF                <1>     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
-    95 00000D26 FF                  <1>     at .secPerClus,  db -1           ;1 sector per cluster, normally
-    96 00000D27 0100                <1>     at .revdSecCnt,  dw 0001h        ;1 Reserved Sector
-    97 00000D29 02                  <1>     at .numFATs,     db 02h          ;2 FAT tables
-    98 00000D2A E000                <1>     at .rootEntCnt,  dw 00E0h        ;224 root entries
-    99 00000D2C FFFF                <1>     at .totSec16,    dw -1           ;Total number of sectors on disk
-   100 00000D2E F0                  <1>     at .media,       db 0F0h         ;Media byte
-   101 00000D2F FFFF                <1>     at .FATsz16,     dw -1           ;9 FAT sectors, normally
-   102 00000D31 1200                <1>     at .secPerTrk,   dw 0012h        ;18 Sectors per track
-   103 00000D33 0200                <1>     at .numHeads,    dw 0002h        ;2 Heads
-   104 00000D35 FFFFFFFF            <1>     at .hiddSec,     dd -1           ;No hidden sectors on removable
-   105 00000D39 00000000            <1>     at .totSec32,    dd 0            ;Not a FAT32 BPB
+    94 00000D21 FFFF                <1>     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
+    95 00000D23 FF                  <1>     at .secPerClus,  db -1           ;1 sector per cluster, normally
+    96 00000D24 0100                <1>     at .revdSecCnt,  dw 0001h        ;1 Reserved Sector
+    97 00000D26 02                  <1>     at .numFATs,     db 02h          ;2 FAT tables
+    98 00000D27 E000                <1>     at .rootEntCnt,  dw 00E0h        ;224 root entries
+    99 00000D29 FFFF                <1>     at .totSec16,    dw -1           ;Total number of sectors on disk
+   100 00000D2B F0                  <1>     at .media,       db 0F0h         ;Media byte
+   101 00000D2C FFFF                <1>     at .FATsz16,     dw -1           ;9 FAT sectors, normally
+   102 00000D2E 1200                <1>     at .secPerTrk,   dw 0012h        ;18 Sectors per track
+   103 00000D30 0200                <1>     at .numHeads,    dw 0002h        ;2 Heads
+   104 00000D32 FFFFFFFF            <1>     at .hiddSec,     dd -1           ;No hidden sectors on removable
+   105 00000D36 00000000            <1>     at .totSec32,    dd 0            ;Not a FAT32 BPB
    106                              <1>     iend
    107                              <1>     istruc extBs 
-   108 00000D3D FF                  <1>     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
-   109 00000D3E 00                  <1>     at .reserved1,      db 00h
-   110 00000D3F 29                  <1>     at .bootSig,        db extBsSig ;Normal signature
-   111 00000D40 FFFFFFFF            <1>     at .volId,          dd -1       ;Set to date/time @ format
-   112 00000D44 4E4F204E414D452020- <1>     at .volLab,         db 'NO NAME    '    
-   112 00000D4D 2020                <1>
-   113 00000D4F 4641543132202020    <1>     at .filSysType,     db 'FAT12   '
+   108 00000D3A FF                  <1>     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
+   109 00000D3B 00                  <1>     at .reserved1,      db 00h
+   110 00000D3C 29                  <1>     at .bootSig,        db extBsSig ;Normal signature
+   111 00000D3D FFFFFFFF            <1>     at .volId,          dd -1       ;Set to date/time @ format
+   112 00000D41 4E4F204E414D452020- <1>     at .volLab,         db 'NO NAME    '    
+   112 00000D4A 2020                <1>
+   113 00000D4C 4641543132202020    <1>     at .filSysType,     db 'FAT12   '
    114                              <1>     iend
    115                              <1> 
    116                              <1> 
    117                              <1> genericBPB16:
    118                              <1>     istruc bpb
-   119 00000D57 FFFF                <1>     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
-   120 00000D59 FF                  <1>     at .secPerClus,  db -1           ;Sectors per cluster
-   121 00000D5A 0100                <1>     at .revdSecCnt,  dw 0001h        ;1 Reserved Sector
-   122 00000D5C 02                  <1>     at .numFATs,     db 02h          ;2 FAT tables
-   123 00000D5D 0002                <1>     at .rootEntCnt,  dw 0200h        ;512 root entries
-   124 00000D5F FFFF                <1>     at .totSec16,    dw -1           ;Total number of sectors on disk
-   125 00000D61 F0                  <1>     at .media,       db 0F0h         ;Media byte
-   126 00000D62 FFFF                <1>     at .FATsz16,     dw -1           ;Number of sectors per FAT
-   127 00000D64 3F00                <1>     at .secPerTrk,   dw 003Fh        ;FAT16 and 32 have Hard disk geometry 
-   128 00000D66 FF00                <1>     at .numHeads,    dw 00FFh        ;255 Heads
-   129 00000D68 FFFFFFFF            <1>     at .hiddSec,     dd -1           ;No hidden sectors on removable
-   130 00000D6C 00000000            <1>     at .totSec32,    dd 0            ;Not a FAT32 BPB
+   119 00000D54 FFFF                <1>     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
+   120 00000D56 FF                  <1>     at .secPerClus,  db -1           ;Sectors per cluster
+   121 00000D57 0100                <1>     at .revdSecCnt,  dw 0001h        ;1 Reserved Sector
+   122 00000D59 02                  <1>     at .numFATs,     db 02h          ;2 FAT tables
+   123 00000D5A 0002                <1>     at .rootEntCnt,  dw 0200h        ;512 root entries
+   124 00000D5C FFFF                <1>     at .totSec16,    dw -1           ;Total number of sectors on disk
+   125 00000D5E F0                  <1>     at .media,       db 0F0h         ;Media byte
+   126 00000D5F FFFF                <1>     at .FATsz16,     dw -1           ;Number of sectors per FAT
+   127 00000D61 3F00                <1>     at .secPerTrk,   dw 003Fh        ;FAT16 and 32 have Hard disk geometry 
+   128 00000D63 FF00                <1>     at .numHeads,    dw 00FFh        ;255 Heads
+   129 00000D65 FFFFFFFF            <1>     at .hiddSec,     dd -1           ;No hidden sectors on removable
+   130 00000D69 00000000            <1>     at .totSec32,    dd 0            ;Not a FAT32 BPB
    131                              <1>     iend
    132                              <1>     istruc extBs 
-   133 00000D70 FF                  <1>     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
-   134 00000D71 00                  <1>     at .reserved1,      db 00h
-   135 00000D72 29                  <1>     at .bootSig,        db extBsSig ;Normal signature
-   136 00000D73 FFFFFFFF            <1>     at .volId,          dd -1       ;Set to date/time @ format
-   137 00000D77 4E4F204E414D452020- <1>     at .volLab,         db 'NO NAME    '    
-   137 00000D80 2020                <1>
-   138 00000D82 4641543136202020    <1>     at .filSysType,     db 'FAT16   '
+   133 00000D6D FF                  <1>     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
+   134 00000D6E 00                  <1>     at .reserved1,      db 00h
+   135 00000D6F 29                  <1>     at .bootSig,        db extBsSig ;Normal signature
+   136 00000D70 FFFFFFFF            <1>     at .volId,          dd -1       ;Set to date/time @ format
+   137 00000D74 4E4F204E414D452020- <1>     at .volLab,         db 'NO NAME    '    
+   137 00000D7D 2020                <1>
+   138 00000D7F 4641543136202020    <1>     at .filSysType,     db 'FAT16   '
    139                              <1>     iend
    140                              <1> gbs_size equ ($ - genericBPB16) + 11
    141                              <1> 
    142                              <1> genericBPB32:
    143                              <1>     istruc bpb32
-   144 00000D8A FFFF                <1>     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
-   145 00000D8C FF                  <1>     at .secPerClus,  db -1           ;Sectors per cluster
-   146 00000D8D 1000                <1>     at .revdSecCnt,  dw 0010h        ;16 Reserved Sectors
-   147 00000D8F 02                  <1>     at .numFATs,     db 02h          ;2 FAT tables
-   148 00000D90 0000                <1>     at .rootEntCnt,  dw 0000h        ;Invalid field for FAT32
-   149 00000D92 0000                <1>     at .totSec16,    dw 0            ;Not a FAT 12/16 BPB
-   150 00000D94 F0                  <1>     at .media,       db 0F0h         ;Media byte
-   151 00000D95 0000                <1>     at .FATsz16,     dw 0            ;Not a FAT 12/16 BPB
-   152 00000D97 3F00                <1>     at .secPerTrk,   dw 003Fh        ;FAT16 and 32 have Hard disk geometry 
-   153 00000D99 FF00                <1>     at .numHeads,    dw 00FFh        ;255 Heads
-   154 00000D9B FFFFFFFF            <1>     at .hiddSec,     dd -1           ;No hidden sectors on removable
-   155 00000D9F FFFFFFFF            <1>     at .totSec32,    dd -1           ;Total number of sectors on disk
+   144 00000D87 FFFF                <1>     at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
+   145 00000D89 FF                  <1>     at .secPerClus,  db -1           ;Sectors per cluster
+   146 00000D8A 1000                <1>     at .revdSecCnt,  dw 0010h        ;16 Reserved Sectors
+   147 00000D8C 02                  <1>     at .numFATs,     db 02h          ;2 FAT tables
+   148 00000D8D 0000                <1>     at .rootEntCnt,  dw 0000h        ;Invalid field for FAT32
+   149 00000D8F 0000                <1>     at .totSec16,    dw 0            ;Not a FAT 12/16 BPB
+   150 00000D91 F0                  <1>     at .media,       db 0F0h         ;Media byte
+   151 00000D92 0000                <1>     at .FATsz16,     dw 0            ;Not a FAT 12/16 BPB
+   152 00000D94 3F00                <1>     at .secPerTrk,   dw 003Fh        ;FAT16 and 32 have Hard disk geometry 
+   153 00000D96 FF00                <1>     at .numHeads,    dw 00FFh        ;255 Heads
+   154 00000D98 FFFFFFFF            <1>     at .hiddSec,     dd -1           ;No hidden sectors on removable
+   155 00000D9C FFFFFFFF            <1>     at .totSec32,    dd -1           ;Total number of sectors on disk
    156                              <1> 
-   157 00000DA3 FFFFFFFF            <1>     at .FATsz32,     dd -1  ;Number of sectors per FAT
-   158 00000DA7 FFFF                <1>     at .extFlags,    dw -1  ;Extended Flags word
-   159 00000DA9 0000                <1>     at .FSver,       dw 0   ;File system version word, must be 0
-   160 00000DAB FFFFFFFF            <1>     at .RootClus,    dd -1  ;First Cluster of Root Directory
-   161 00000DAF 0100                <1>     at .FSinfo,      dw 1   ;Sector number of FSINFO structure, usually 1
-   162 00000DB1 0600                <1>     at .BkBootSec,   dw 6   ;Backup Boot sector, either 0 or 6
-   163 00000DB3 000000000000000000- <1>     at .reserved,    db 12 dup (0) ;Reserved 12 bytes
-   163 00000DBC 000000              <1>
+   157 00000DA0 FFFFFFFF            <1>     at .FATsz32,     dd -1  ;Number of sectors per FAT
+   158 00000DA4 FFFF                <1>     at .extFlags,    dw -1  ;Extended Flags word
+   159 00000DA6 0000                <1>     at .FSver,       dw 0   ;File system version word, must be 0
+   160 00000DA8 FFFFFFFF            <1>     at .RootClus,    dd -1  ;First Cluster of Root Directory
+   161 00000DAC 0100                <1>     at .FSinfo,      dw 1   ;Sector number of FSINFO structure, usually 1
+   162 00000DAE 0600                <1>     at .BkBootSec,   dw 6   ;Backup Boot sector, either 0 or 6
+   163 00000DB0 000000000000000000- <1>     at .reserved,    db 12 dup (0) ;Reserved 12 bytes
+   163 00000DB9 000000              <1>
    164                              <1>     iend
    165                              <1>     istruc extBs 
-   166 00000DBF FF                  <1>     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
-   167 00000DC0 00                  <1>     at .reserved1,      db 00h
-   168 00000DC1 29                  <1>     at .bootSig,        db extBsSig ;Normal signature
-   169 00000DC2 FFFFFFFF            <1>     at .volId,          dd -1       ;Set to date/time @ format
-   170 00000DC6 4E4F204E414D452020- <1>     at .volLab,         db 'NO NAME    '    
-   170 00000DCF 2020                <1>
-   171 00000DD1 4641543332202020    <1>     at .filSysType,     db 'FAT32   '
+   166 00000DBC FF                  <1>     at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
+   167 00000DBD 00                  <1>     at .reserved1,      db 00h
+   168 00000DBE 29                  <1>     at .bootSig,        db extBsSig ;Normal signature
+   169 00000DBF FFFFFFFF            <1>     at .volId,          dd -1       ;Set to date/time @ format
+   170 00000DC3 4E4F204E414D452020- <1>     at .volLab,         db 'NO NAME    '    
+   170 00000DCC 2020                <1>
+   171 00000DCE 4641543332202020    <1>     at .filSysType,     db 'FAT32   '
    172                              <1>     iend
    173                              <1> gbs32_size equ ($ - genericBPB32) + 11
    174                              <1> 
    175                              <1> 
    176                              <1> accFlgPkt:
    177                              <1>     istruc accFlgBlk
-   178 00000DD9 00                  <1>         at .bSpecFuncs, db 0
-   179 00000DDA 00                  <1>         at .bAccMode,   db 0    ;If 0, disable access. If -1, enable.
+   178 00000DD6 00                  <1>         at .bSpecFuncs, db 0
+   179 00000DD7 00                  <1>         at .bAccMode,   db 0    ;If 0, disable access. If -1, enable.
    180                              <1>     iend
    181                              <1> ioParams:
    182                              <1>     istruc chsParamsBlock
-   183 00000DDB 04                  <1>     at .bSpecFuncs, db 4    ;Bit 0 = Dont lock bpb. Bit 2 = Sectors same size.
-   184 00000DDC 00                  <1>     at .bDevType,   db 0    ;5 if fixed, 7 otherwise
-   185 00000DDD 0000                <1>     at .wDevFlgs,   dw 0    ;Only bits 0 and 1 are xmitted/read
-   186 00000DDF 3F00                <1>     at .wNumCyl,    dw 63
-   187 00000DE1 00                  <1>     at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
-   188 00000DE2 000000000000000000- <1>     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
-   188 00000DEB 000000000000000000- <1>
-   188 00000DF4 000000000000000000- <1>
-   188 00000DFD 000000000000000000- <1>
-   188 00000E06 000000000000000000- <1>
-   188 00000E0F 0000000000000000    <1>
-   189 00000E17 3F00                <1>     at .TrackLayout,    dw 63
+   183 00000DD8 04                  <1>     at .bSpecFuncs, db 4    ;Bit 0 = Dont lock bpb. Bit 2 = Sectors same size.
+   184 00000DD9 00                  <1>     at .bDevType,   db 0    ;5 if fixed, 7 otherwise
+   185 00000DDA 0000                <1>     at .wDevFlgs,   dw 0    ;Only bits 0 and 1 are xmitted/read
+   186 00000DDC 3F00                <1>     at .wNumCyl,    dw 63
+   187 00000DDE 00                  <1>     at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
+   188 00000DDF 000000000000000000- <1>     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
+   188 00000DE8 000000000000000000- <1>
+   188 00000DF1 000000000000000000- <1>
+   188 00000DFA 000000000000000000- <1>
+   188 00000E03 000000000000000000- <1>
+   188 00000E0C 0000000000000000    <1>
+   189 00000E14 3F00                <1>     at .TrackLayout,    dw 63
    190                              <1> ;Each row is a pair of words:
    191                              <1> ;   dw Sector number, Sector size
-   192 00000E19 01000002            <1>     dw 1, 200h
-   193 00000E1D 02000002            <1>     dw 2, 200h
-   194 00000E21 03000002            <1>     dw 3, 200h
-   195 00000E25 04000002            <1>     dw 4, 200h
-   196 00000E29 05000002            <1>     dw 5, 200h
-   197 00000E2D 06000002            <1>     dw 6, 200h
-   198 00000E31 07000002            <1>     dw 7, 200h
-   199 00000E35 08000002            <1>     dw 8, 200h
-   200 00000E39 09000002            <1>     dw 9, 200h
-   201 00000E3D 0A000002            <1>     dw 10, 200h
-   202 00000E41 0B000002            <1>     dw 11, 200h
-   203 00000E45 0C000002            <1>     dw 12, 200h
-   204 00000E49 0D000002            <1>     dw 13, 200h
-   205 00000E4D 0E000002            <1>     dw 14, 200h
-   206 00000E51 0F000002            <1>     dw 15, 200h
-   207 00000E55 10000002            <1>     dw 16, 200h
-   208 00000E59 11000002            <1>     dw 17, 200h
-   209 00000E5D 12000002            <1>     dw 18, 200h
-   210 00000E61 13000002            <1>     dw 19, 200h
-   211 00000E65 14000002            <1>     dw 20, 200h
-   212 00000E69 15000002            <1>     dw 21, 200h
-   213 00000E6D 16000002            <1>     dw 22, 200h
-   214 00000E71 17000002            <1>     dw 23, 200h
-   215 00000E75 18000002            <1>     dw 24, 200h
-   216 00000E79 19000002            <1>     dw 25, 200h
-   217 00000E7D 1A000002            <1>     dw 26, 200h
-   218 00000E81 1B000002            <1>     dw 27, 200h
-   219 00000E85 1C000002            <1>     dw 28, 200h
-   220 00000E89 1D000002            <1>     dw 29, 200h
-   221 00000E8D 1E000002            <1>     dw 30, 200h
-   222 00000E91 1F000002            <1>     dw 31, 200h
-   223 00000E95 20000002            <1>     dw 32, 200h
-   224 00000E99 21000002            <1>     dw 33, 200h
-   225 00000E9D 22000002            <1>     dw 34, 200h
-   226 00000EA1 23000002            <1>     dw 35, 200h
-   227 00000EA5 24000002            <1>     dw 36, 200h
-   228 00000EA9 25000002            <1>     dw 37, 200h
-   229 00000EAD 26000002            <1>     dw 38, 200h
-   230 00000EB1 27000002            <1>     dw 39, 200h
-   231 00000EB5 28000002            <1>     dw 40, 200h
-   232 00000EB9 29000002            <1>     dw 41, 200h
-   233 00000EBD 2A000002            <1>     dw 42, 200h
-   234 00000EC1 2B000002            <1>     dw 43, 200h
-   235 00000EC5 2C000002            <1>     dw 44, 200h
-   236 00000EC9 2D000002            <1>     dw 45, 200h
-   237 00000ECD 2E000002            <1>     dw 46, 200h
-   238 00000ED1 2F000002            <1>     dw 47, 200h
-   239 00000ED5 30000002            <1>     dw 48, 200h
-   240 00000ED9 31000002            <1>     dw 49, 200h
-   241 00000EDD 32000002            <1>     dw 50, 200h
-   242 00000EE1 33000002            <1>     dw 51, 200h
-   243 00000EE5 34000002            <1>     dw 52, 200h
-   244 00000EE9 35000002            <1>     dw 53, 200h
-   245 00000EED 36000002            <1>     dw 54, 200h
-   246 00000EF1 37000002            <1>     dw 55, 200h
-   247 00000EF5 38000002            <1>     dw 56, 200h
-   248 00000EF9 39000002            <1>     dw 57, 200h
-   249 00000EFD 3A000002            <1>     dw 58, 200h
-   250 00000F01 3B000002            <1>     dw 59, 200h
-   251 00000F05 3C000002            <1>     dw 60, 200h
-   252 00000F09 3D000002            <1>     dw 61, 200h
-   253 00000F0D 3E000002            <1>     dw 62, 200h
-   254 00000F11 3F000002            <1>     dw 63, 200h
+   192 00000E16 01000002            <1>     dw 1, 200h
+   193 00000E1A 02000002            <1>     dw 2, 200h
+   194 00000E1E 03000002            <1>     dw 3, 200h
+   195 00000E22 04000002            <1>     dw 4, 200h
+   196 00000E26 05000002            <1>     dw 5, 200h
+   197 00000E2A 06000002            <1>     dw 6, 200h
+   198 00000E2E 07000002            <1>     dw 7, 200h
+   199 00000E32 08000002            <1>     dw 8, 200h
+   200 00000E36 09000002            <1>     dw 9, 200h
+   201 00000E3A 0A000002            <1>     dw 10, 200h
+   202 00000E3E 0B000002            <1>     dw 11, 200h
+   203 00000E42 0C000002            <1>     dw 12, 200h
+   204 00000E46 0D000002            <1>     dw 13, 200h
+   205 00000E4A 0E000002            <1>     dw 14, 200h
+   206 00000E4E 0F000002            <1>     dw 15, 200h
+   207 00000E52 10000002            <1>     dw 16, 200h
+   208 00000E56 11000002            <1>     dw 17, 200h
+   209 00000E5A 12000002            <1>     dw 18, 200h
+   210 00000E5E 13000002            <1>     dw 19, 200h
+   211 00000E62 14000002            <1>     dw 20, 200h
+   212 00000E66 15000002            <1>     dw 21, 200h
+   213 00000E6A 16000002            <1>     dw 22, 200h
+   214 00000E6E 17000002            <1>     dw 23, 200h
+   215 00000E72 18000002            <1>     dw 24, 200h
+   216 00000E76 19000002            <1>     dw 25, 200h
+   217 00000E7A 1A000002            <1>     dw 26, 200h
+   218 00000E7E 1B000002            <1>     dw 27, 200h
+   219 00000E82 1C000002            <1>     dw 28, 200h
+   220 00000E86 1D000002            <1>     dw 29, 200h
+   221 00000E8A 1E000002            <1>     dw 30, 200h
+   222 00000E8E 1F000002            <1>     dw 31, 200h
+   223 00000E92 20000002            <1>     dw 32, 200h
+   224 00000E96 21000002            <1>     dw 33, 200h
+   225 00000E9A 22000002            <1>     dw 34, 200h
+   226 00000E9E 23000002            <1>     dw 35, 200h
+   227 00000EA2 24000002            <1>     dw 36, 200h
+   228 00000EA6 25000002            <1>     dw 37, 200h
+   229 00000EAA 26000002            <1>     dw 38, 200h
+   230 00000EAE 27000002            <1>     dw 39, 200h
+   231 00000EB2 28000002            <1>     dw 40, 200h
+   232 00000EB6 29000002            <1>     dw 41, 200h
+   233 00000EBA 2A000002            <1>     dw 42, 200h
+   234 00000EBE 2B000002            <1>     dw 43, 200h
+   235 00000EC2 2C000002            <1>     dw 44, 200h
+   236 00000EC6 2D000002            <1>     dw 45, 200h
+   237 00000ECA 2E000002            <1>     dw 46, 200h
+   238 00000ECE 2F000002            <1>     dw 47, 200h
+   239 00000ED2 30000002            <1>     dw 48, 200h
+   240 00000ED6 31000002            <1>     dw 49, 200h
+   241 00000EDA 32000002            <1>     dw 50, 200h
+   242 00000EDE 33000002            <1>     dw 51, 200h
+   243 00000EE2 34000002            <1>     dw 52, 200h
+   244 00000EE6 35000002            <1>     dw 53, 200h
+   245 00000EEA 36000002            <1>     dw 54, 200h
+   246 00000EEE 37000002            <1>     dw 55, 200h
+   247 00000EF2 38000002            <1>     dw 56, 200h
+   248 00000EF6 39000002            <1>     dw 57, 200h
+   249 00000EFA 3A000002            <1>     dw 58, 200h
+   250 00000EFE 3B000002            <1>     dw 59, 200h
+   251 00000F02 3C000002            <1>     dw 60, 200h
+   252 00000F06 3D000002            <1>     dw 61, 200h
+   253 00000F0A 3E000002            <1>     dw 62, 200h
+   254 00000F0E 3F000002            <1>     dw 63, 200h
    255                              <1>     iend
     92                                  %include "./dat/fmtStr.asm"
      1                              <1> ;Error Messages go here
-     2 00000F15 496E76616C69642044- <1> badVerStr   db "Invalid DOS Version",CR,LF,"$"
-     2 00000F1E 4F532056657273696F- <1>
-     2 00000F27 6E0D0A24            <1>
-     3 00000F2B 496E76616C69642044- <1> badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
-     3 00000F34 726976652053706563- <1>
-     3 00000F3D 69666965640D0A24    <1>
-     4 00000F45 43616E6E6F7420464F- <1> badNetDrv   db "Cannot FORMAT a Network drive",CR,LF,"$"
-     4 00000F4E 524D41542061204E65- <1>
-     4 00000F57 74776F726B20647269- <1>
-     4 00000F60 76650D0A24          <1>
-     5 00000F65 43616E6E6F7420464F- <1> badSubsDrv  db "Cannot FORMAT a SUBSTed drive",CR,LF,"$"
-     5 00000F6E 524D41542061205355- <1>
-     5 00000F77 425354656420647269- <1>
-     5 00000F80 76650D0A24          <1>
-     6 00000F85 43616E6E6F7420464F- <1> badJoinDrv  db "Cannot FORMAT a JOINed drive",CR,LF,"$"
-     6 00000F8E 524D41542061204A4F- <1>
-     6 00000F97 494E65642064726976- <1>
-     6 00000FA0 650D0A24            <1>
-     7 00000FA4 43616E6E6F7420466F- <1> badGeneric  db "Cannot Format Drive",CR,LF,"$"
-     7 00000FAD 726D61742044726976- <1>
-     7 00000FB6 650D0A24            <1>
+     2 00000F12 496E76616C69642044- <1> badVerStr   db "Invalid DOS Version",CR,LF,"$"
+     2 00000F1B 4F532056657273696F- <1>
+     2 00000F24 6E0D0A24            <1>
+     3 00000F28 496E76616C69642044- <1> badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
+     3 00000F31 726976652053706563- <1>
+     3 00000F3A 69666965640D0A24    <1>
+     4 00000F42 43616E6E6F7420464F- <1> badNetDrv   db "Cannot FORMAT a Network drive",CR,LF,"$"
+     4 00000F4B 524D41542061204E65- <1>
+     4 00000F54 74776F726B20647269- <1>
+     4 00000F5D 76650D0A24          <1>
+     5 00000F62 43616E6E6F7420464F- <1> badSubsDrv  db "Cannot FORMAT a SUBSTed drive",CR,LF,"$"
+     5 00000F6B 524D41542061205355- <1>
+     5 00000F74 425354656420647269- <1>
+     5 00000F7D 76650D0A24          <1>
+     6 00000F82 43616E6E6F7420464F- <1> badJoinDrv  db "Cannot FORMAT a JOINed drive",CR,LF,"$"
+     6 00000F8B 524D41542061204A4F- <1>
+     6 00000F94 494E65642064726976- <1>
+     6 00000F9D 650D0A24            <1>
+     7 00000FA1 43616E6E6F7420466F- <1> badGeneric  db "Cannot Format Drive",CR,LF,"$"
+     7 00000FAA 726D61742044726976- <1>
+     7 00000FB3 650D0A24            <1>
      8                              <1> 
-     9 00000FBA 566F6C756D6520746F- <1> badVolBig   db "Volume too large to format",CR,LF,"$"
-     9 00000FC3 6F206C617267652074- <1>
-     9 00000FCC 6F20666F726D61740D- <1>
-     9 00000FD5 0A24                <1>
-    10 00000FD7 496E76616C6964204D- <1> badSecSize  db "Invalid Medium Sector Size",CR,LF,"$"
-    10 00000FE0 656469756D20536563- <1>
-    10 00000FE9 746F722053697A650D- <1>
-    10 00000FF2 0A24                <1>
-    11 00000FF4 43616E6E6F7420666F- <1> currentFmt  db "Cannot format current drive",CR,LF,"$"
-    11 00000FFD 726D61742063757272- <1>
-    11 00001006 656E74206472697665- <1>
-    11 0000100F 0D0A24              <1>
-    12 00001012 556E61626C6520746F- <1> badBtStrWr  db "Unable to write BOOT",CR,LF,"$"
-    12 0000101B 20777269746520424F- <1>
-    12 00001024 4F540D0A24          <1>
-    13 00001029 556E61626C6520746F- <1> badFSInfoWr db "Unable to write FS Info",CR,LF,"$"
-    13 00001032 207772697465204653- <1>
-    13 0000103B 20496E666F0D0A24    <1>
-    14 00001043 4572726F7220696E20- <1> badIOCTL    db "Error in IOCTL call",CR,LF,"$"
-    14 0000104C 494F43544C2063616C- <1>
-    14 00001055 6C0D0A24            <1>
-    15 00001059 4572726F7220777269- <1> badFATWr    db "Error writing FAT",CR,LF,"$"
-    15 00001062 74696E67204641540D- <1>
-    15 0000106B 0A24                <1>
-    16 0000106D 4572726F7220777269- <1> badDirWr    db "Error writing directory",CR,LF,"$"
-    16 00001076 74696E672064697265- <1>
-    16 0000107F 63746F72790D0A24    <1>
+     9 00000FB7 566F6C756D6520746F- <1> badVolBig   db "Volume too large to format",CR,LF,"$"
+     9 00000FC0 6F206C617267652074- <1>
+     9 00000FC9 6F20666F726D61740D- <1>
+     9 00000FD2 0A24                <1>
+    10 00000FD4 496E76616C6964204D- <1> badSecSize  db "Invalid Medium Sector Size",CR,LF,"$"
+    10 00000FDD 656469756D20536563- <1>
+    10 00000FE6 746F722053697A650D- <1>
+    10 00000FEF 0A24                <1>
+    11 00000FF1 43616E6E6F7420666F- <1> currentFmt  db "Cannot format current drive",CR,LF,"$"
+    11 00000FFA 726D61742063757272- <1>
+    11 00001003 656E74206472697665- <1>
+    11 0000100C 0D0A24              <1>
+    12 0000100F 556E61626C6520746F- <1> badBtStrWr  db "Unable to write BOOT",CR,LF,"$"
+    12 00001018 20777269746520424F- <1>
+    12 00001021 4F540D0A24          <1>
+    13 00001026 556E61626C6520746F- <1> badFSInfoWr db "Unable to write FS Info",CR,LF,"$"
+    13 0000102F 207772697465204653- <1>
+    13 00001038 20496E666F0D0A24    <1>
+    14 00001040 4572726F7220696E20- <1> badIOCTL    db "Error in IOCTL call",CR,LF,"$"
+    14 00001049 494F43544C2063616C- <1>
+    14 00001052 6C0D0A24            <1>
+    15 00001056 4572726F7220777269- <1> badFATWr    db "Error writing FAT",CR,LF,"$"
+    15 0000105F 74696E67204641540D- <1>
+    15 00001068 0A24                <1>
+    16 0000106A 4572726F7220777269- <1> badDirWr    db "Error writing directory",CR,LF,"$"
+    16 00001073 74696E672064697265- <1>
+    16 0000107C 63746F72790D0A24    <1>
     17                              <1> ;Removable device warning message
-    18 00001087 496E73657274206E65- <1> fmtRemStr   db "Insert new Media for drive "
-    18 00001090 77204D656469612066- <1>
-    18 00001099 6F7220647269766520  <1>
-    19 000010A2 233A0D0A616E642073- <1> fmtRemStrL  db "#:",CR,LF,"and strike ENTER when ready$"
-    19 000010AB 7472696B6520454E54- <1>
-    19 000010B4 4552207768656E2072- <1>
-    19 000010BD 6561647924          <1>
+    18 00001084 496E73657274206E65- <1> fmtRemStr   db "Insert new Media for drive "
+    18 0000108D 77204D656469612066- <1>
+    18 00001096 6F7220647269766520  <1>
+    19 0000109F 233A0D0A616E642073- <1> fmtRemStrL  db "#:",CR,LF,"and strike ENTER when ready$"
+    19 000010A8 7472696B6520454E54- <1>
+    19 000010B1 4552207768656E2072- <1>
+    19 000010BA 6561647924          <1>
     20                              <1> ;Hard drive warning message
-    21 000010C2 0D0A5741524E494E47- <1> fmtHddStr   db CR,LF,"WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
-    21 000010CB 2120414C4C20444154- <1>
-    21 000010D4 41204F4E204E4F4E2D- <1>
-    21 000010DD 52454D4F5641424C45- <1>
-    21 000010E6 204449534B0D0A4452- <1>
-    21 000010EF 49564520            <1>
-    22 000010F3 233A2057494C4C2042- <1> fmtHddStrL  db "#: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)? $"
-    22 000010FC 45204C4F5354210D0A- <1>
-    22 00001105 50726F636565642077- <1>
-    22 0000110E 69746820466F726D61- <1>
-    22 00001117 742028592F4E293F20- <1>
-    22 00001120 24                  <1>
+    21 000010BF 0D0A5741524E494E47- <1> fmtHddStr   db CR,LF,"WARNING! ALL DATA ON NON-REMOVABLE DISK",CR,LF, "DRIVE "
+    21 000010C8 2120414C4C20444154- <1>
+    21 000010D1 41204F4E204E4F4E2D- <1>
+    21 000010DA 52454D4F5641424C45- <1>
+    21 000010E3 204449534B0D0A4452- <1>
+    21 000010EC 49564520            <1>
+    22 000010F0 233A2057494C4C2042- <1> fmtHddStrL  db "#: WILL BE LOST!",CR,LF,"Proceed with Format (Y/N)? $"
+    22 000010F9 45204C4F5354210D0A- <1>
+    22 00001102 50726F636565642077- <1>
+    22 0000110B 69746820466F726D61- <1>
+    22 00001114 742028592F4E293F20- <1>
+    22 0000111D 24                  <1>
     23                              <1> ;CTRL+C message
-    24 00001121 0D0A41726520796F75- <1> cancel      db CR,LF,"Are you sure you wish to abort formatting drive "
-    24 0000112A 207375726520796F75- <1>
-    24 00001133 207769736820746F20- <1>
-    24 0000113C 61626F727420666F72- <1>
-    24 00001145 6D617474696E672064- <1>
-    24 0000114E 7269766520          <1>
-    25 00001153 233F0D0A            <1> cancelL     db "#?", CR,LF
-    26 00001157 446F696E6720736F20- <1>             db "Doing so may result in an unusable volume. Y/N?$"
-    26 00001160 6D617920726573756C- <1>
-    26 00001169 7420696E20616E2075- <1>
-    26 00001172 6E757361626C652076- <1>
-    26 0000117B 6F6C756D652E20592F- <1>
-    26 00001184 4E3F24              <1>
+    24 0000111E 0D0A41726520796F75- <1> cancel      db CR,LF,"Are you sure you wish to abort formatting drive "
+    24 00001127 207375726520796F75- <1>
+    24 00001130 207769736820746F20- <1>
+    24 00001139 61626F727420666F72- <1>
+    24 00001142 6D617474696E672064- <1>
+    24 0000114B 7269766520          <1>
+    25 00001150 233F0D0A            <1> cancelL     db "#?", CR,LF
+    26 00001154 446F696E6720736F20- <1>             db "Doing so may result in an unusable volume. Y/N?$"
+    26 0000115D 6D617920726573756C- <1>
+    26 00001166 7420696E20616E2075- <1>
+    26 0000116F 6E757361626C652076- <1>
+    26 00001178 6F6C756D652E20592F- <1>
+    26 00001181 4E3F24              <1>
     27                              <1> 
-    28 00001187 0D0A24              <1> crlfStr     db CR,LF,"$"
+    28 00001184 0D0A24              <1> crlfStr     db CR,LF,"$"
     29                              <1> 
-    30 0000118A 466F726D617474696E- <1> fmtMsg      db "Formatting...",CR,LF,"$"
-    30 00001193 672E2E2E0D0A24      <1>
-    31 0000119A 252070657263656E74- <1> fmtPcntMsg  db "% percent formatted...$"
-    31 000011A3 20666F726D61747465- <1>
-    31 000011AC 642E2E2E24          <1>
+    30 00001187 466F726D617474696E- <1> fmtMsg      db "Formatting...",CR,LF,"$"
+    30 00001190 672E2E2E0D0A24      <1>
+    31 00001197 252070657263656E74- <1> fmtPcntMsg  db "% percent formatted...$"
+    31 000011A0 20666F726D61747465- <1>
+    31 000011A9 642E2E2E24          <1>
     32                              <1> fmtPcntMsgL equ $ - fmtPcntMsg + 3 ;Add three for the max number of digits
     33                              <1> 
-    34 000011B1 466F726D617420616E- <1> againStr    db "Format another (Y/N)? $"
-    34 000011BA 6F746865722028592F- <1>
-    34 000011C3 4E293F2024          <1>
-    35 000011C8 466F726D617420636F- <1> okFormat    db "Format complete",fmtPcntMsgL dup (SPC), CR,LF,"$" 
-    35 000011D1 6D706C657465202020- <1>
-    35 000011DA 202020202020202020- <1>
-    35 000011E3 202020202020202020- <1>
-    35 000011EC 20202020200D0A24    <1>
-    36 000011F4 466F726D6174206661- <1> badFmtFail  db "Format failure",fmtPcntMsgL dup (SPC), CR,LF,"$"
-    36 000011FD 696C75726520202020- <1>
-    36 00001206 202020202020202020- <1>
-    36 0000120F 202020202020202020- <1>
-    36 00001218 202020200D0A24      <1>
+    34 000011AE 466F726D617420616E- <1> againStr    db "Format another (Y/N)? $"
+    34 000011B7 6F746865722028592F- <1>
+    34 000011C0 4E293F2024          <1>
+    35 000011C5 466F726D617420636F- <1> okFormat    db "Format complete",fmtPcntMsgL dup (SPC), CR,LF,"$" 
+    35 000011CE 6D706C657465202020- <1>
+    35 000011D7 202020202020202020- <1>
+    35 000011E0 202020202020202020- <1>
+    35 000011E9 20202020200D0A24    <1>
+    36 000011F1 466F726D6174206661- <1> badFmtFail  db "Format failure",fmtPcntMsgL dup (SPC), CR,LF,"$"
+    36 000011FA 696C75726520202020- <1>
+    36 00001203 202020202020202020- <1>
+    36 0000120C 202020202020202020- <1>
+    36 00001215 202020200D0A24      <1>
     37                              <1> 
-    38 0000121F 43616C63756C617469- <1> freeSpcStr  db "Calculating free space (this may take several minutes)...",CR,LF,"$"
-    38 00001228 6E6720667265652073- <1>
-    38 00001231 706163652028746869- <1>
-    38 0000123A 73206D61792074616B- <1>
-    38 00001243 65207365766572616C- <1>
-    38 0000124C 206D696E7574657329- <1>
-    38 00001255 2E2E2E0D0A24        <1>
-    39 0000125B 436F6D706C6574652E- <1> completeStr db "Complete.",CR,LF,"$"
-    39 00001264 0D0A24              <1>
+    38 0000121C 43616C63756C617469- <1> freeSpcStr  db "Calculating free space (this may take several minutes)...",CR,LF,"$"
+    38 00001225 6E6720667265652073- <1>
+    38 0000122E 706163652028746869- <1>
+    38 00001237 73206D61792074616B- <1>
+    38 00001240 65207365766572616C- <1>
+    38 00001249 206D696E7574657329- <1>
+    38 00001252 2E2E2E0D0A24        <1>
+    39 00001258 436F6D706C6574652E- <1> completeStr db "Complete.",CR,LF,"$"
+    39 00001261 0D0A24              <1>
     40                              <1> 
     41                              <1> ;Disk stat strings
-    42 00001267 20627974657320746F- <1> totalBytesStr       db " bytes total disk space",CR,LF,"$"
-    42 00001270 74616C206469736B20- <1>
-    42 00001279 73706163650D0A24    <1>
-    43 00001281 206279746573207573- <1> sysBytesStr         db " bytes used by system",CR,LF,"$"
-    43 0000128A 656420627920737973- <1>
-    43 00001293 74656D0D0A24        <1>
-    44 00001299 20627974657320696E- <1> badSectStr          db " bytes in bad sectors",CR,LF,"$"
-    44 000012A2 206261642073656374- <1>
-    44 000012AB 6F72730D0A24        <1>
-    45 000012B1 206279746573206176- <1> availableBytesStr   db " bytes available on disk",CR,LF,LF,"$"
-    45 000012BA 61696C61626C65206F- <1>
-    45 000012C3 6E206469736B0D0A0A- <1>
-    45 000012CC 24                  <1>
-    46 000012CD 20627974657320696E- <1> clustSzStr          db " bytes in each allocation unit.",CR,LF,"$"
-    46 000012D6 206561636820616C6C- <1>
-    46 000012DF 6F636174696F6E2075- <1>
-    46 000012E8 6E69742E0D0A24      <1>
-    47 000012EF 20616C6C6F63617469- <1> totClusStr          db " allocation units available on disk.",CR,LF,LF,"$"
-    47 000012F8 6F6E20756E69747320- <1>
-    47 00001301 617661696C61626C65- <1>
-    47 0000130A 206F6E206469736B2E- <1>
-    47 00001313 0D0A0A24            <1>
-    48 00001317 566F6C756D65205365- <1> volSerialNumStr     db "Volume Serial Number is $"
-    48 00001320 7269616C204E756D62- <1>
-    48 00001329 65722069732024      <1>
+    42 00001264 20627974657320746F- <1> totalBytesStr       db " bytes total disk space",CR,LF,"$"
+    42 0000126D 74616C206469736B20- <1>
+    42 00001276 73706163650D0A24    <1>
+    43 0000127E 206279746573207573- <1> sysBytesStr         db " bytes used by system",CR,LF,"$"
+    43 00001287 656420627920737973- <1>
+    43 00001290 74656D0D0A24        <1>
+    44 00001296 20627974657320696E- <1> badSectStr          db " bytes in bad sectors",CR,LF,"$"
+    44 0000129F 206261642073656374- <1>
+    44 000012A8 6F72730D0A24        <1>
+    45 000012AE 206279746573206176- <1> availableBytesStr   db " bytes available on disk",CR,LF,LF,"$"
+    45 000012B7 61696C61626C65206F- <1>
+    45 000012C0 6E206469736B0D0A0A- <1>
+    45 000012C9 24                  <1>
+    46 000012CA 20627974657320696E- <1> clustSzStr          db " bytes in each allocation unit.",CR,LF,"$"
+    46 000012D3 206561636820616C6C- <1>
+    46 000012DC 6F636174696F6E2075- <1>
+    46 000012E5 6E69742E0D0A24      <1>
+    47 000012EC 20616C6C6F63617469- <1> totClusStr          db " allocation units available on disk.",CR,LF,LF,"$"
+    47 000012F5 6F6E20756E69747320- <1>
+    47 000012FE 617661696C61626C65- <1>
+    47 00001307 206F6E206469736B2E- <1>
+    47 00001310 0D0A0A24            <1>
+    48 00001314 566F6C756D65205365- <1> volSerialNumStr     db "Volume Serial Number is $"
+    48 0000131D 7269616C204E756D62- <1>
+    48 00001326 65722069732024      <1>
     49                              <1> 
     50                              <1> ;Filename strings
-    51 00001330 583A5C4C4142454C2E- <1> sLblProg db "X:\LABEL.COM",0
-    51 00001339 434F4D00            <1>
-    52 0000133D 583A5C5359532E434F- <1> sSysProg db "X:\SYS.COM",0
-    52 00001346 4D00                <1>
+    51 0000132D 583A5C4C4142454C2E- <1> sLblProg db "X:\LABEL.COM",0
+    51 00001336 434F4D00            <1>
+    52 0000133A 583A5C5359532E434F- <1> sSysProg db "X:\SYS.COM",0
+    52 00001343 4D00                <1>
     93                                  bootloader:
     94                                  ;Symbol pointing to the bootloader
     95                                  ;When building the COM for format, we append the loader binary here

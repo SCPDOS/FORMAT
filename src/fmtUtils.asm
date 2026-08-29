@@ -48,7 +48,6 @@ writeDiskStats:
 ;Start start by putting a new line
     lea rdx, crlfStr
     call printString
-    breakpoint
 ;Start by getting free sector count from DOS. We do this to make the 
 ; computation of the free sector count easier after /s and if any bad clusters.
     mov eax, 3600h  ;Get free space count
