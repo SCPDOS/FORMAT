@@ -1,4 +1,4 @@
-     1                                  [map all ./Listings/loader.map]
+     1                                  [map all ./lst/loader.map]
      2                                  BITS 16
      3                                  ORG	600h
      4                                  
@@ -179,4 +179,4 @@
    175 00000001 ??????                      alignb 4
    176 00000004 <res 10h>               pktptr  resq  2 ;Packet Pointer, 16 bytes in size
    176          ------------------       info: assembly required 1+2+2 passes
-
+ [--info=1]

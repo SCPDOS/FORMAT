@@ -1,15 +1,15 @@
-;IOCTL request header
 ;Data area here
 fmtDrive    db -1       ;Drive we are operating on (0 based)
 inCrit      db 0        ;If not 0, in a critical section, must exit
 cdsPtr      dq 0        ;CDS ptr here
-bufferArea  dq 0        ;Ptr to the buffer area
-;HARDCODED TO BE QUICK FORMAT FOR NOW
-quickByte   db -1       ;If /Q, don't zero all sectors first. Set if /Q.
+pBuffer  dq 0        ;Ptr to the buffer area
+bFlag1      db 0 | bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
+pBtLdr      dq 0        ;Point to the bootloader to use
+
 ;Format Data here
 remDev      db 0        ;0 = Removable, -1 = Fixed
 fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
-sectorSize  dw 0        ;Sector size in bytes
+sectorSize  dw 512      ;Sector size in bytes: HARDCODED BYTES PER SECTOR VALUE
 numSectors  dq 0        ;Number of sectors in volume
 secPerClust db 0        ;Copy the sectors per cluster over
 fatSize     dd 0        ;FAT size (number of sectors per FAT)
@@ -17,10 +17,9 @@ media       db 0F0h     ;Media type (F0h or F8h)
 bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
 bpbSize     db 0        ;Size of the BPB
 hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
-
-loaderPtr   dq 0        ;Point to the bootloader to use
-
 f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
+dSerNum     dd 0        ;Serial number
+dBadClust   dd 0        ;Number of bad clusters on disk
 
 ;Tracking vars, used only for updating the percentage message!
 secToWrite  dq 0        ;Number of sectors to write (neq numSectors if /Q set)

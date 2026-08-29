@@ -1,8 +1,8 @@
 
 - NASM Map file ---------------------------------------------------------------
 
-Source file:  ./Source/loader.asm
-Output file:  ./Binaries/loader.bin
+Source file:  ./src/loader.asm
+Output file:  ./bin/loader.bin
 
 -- Program origin -------------------------------------------------------------
 

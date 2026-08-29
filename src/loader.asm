@@ -1,4 +1,4 @@
-[map all ./Listings/loader.map]
+[map all ./lst/loader.map]
 BITS 16
 ORG	600h
 

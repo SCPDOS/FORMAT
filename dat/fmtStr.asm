@@ -3,6 +3,7 @@ badVerStr   db "Invalid DOS Version",CR,LF,"$"
 badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
 badNetDrv   db "Cannot FORMAT a Network drive",CR,LF,"$"
 badSubsDrv  db "Cannot FORMAT a SUBSTed drive",CR,LF,"$"
+badJoinDrv  db "Cannot FORMAT a JOINed drive",CR,LF,"$"
 badGeneric  db "Cannot Format Drive",CR,LF,"$"
 
 badVolBig   db "Volume too large to format",CR,LF,"$"
@@ -30,7 +31,22 @@ fmtMsg      db "Formatting...",CR,LF,"$"
 fmtPcntMsg  db "% percent formatted...$"
 fmtPcntMsgL equ $ - fmtPcntMsg + 3 ;Add three for the max number of digits
 
-againStr    db CR,LF,"Format another (Y/N)? $"
+againStr    db "Format another (Y/N)? $"
 okFormat    db "Format complete",fmtPcntMsgL dup (SPC), CR,LF,"$" 
 badFmtFail  db "Format failure",fmtPcntMsgL dup (SPC), CR,LF,"$"
 
+freeSpcStr  db "Calculating free space (this may take several minutes)...",CR,LF,"$"
+completeStr db "Complete.",CR,LF,"$"
+
+;Disk stat strings
+totalBytesStr       db " bytes total disk space",CR,LF,"$"
+sysBytesStr         db " bytes used by system",CR,LF,"$"
+badSectStr          db " bytes in bad sectors",CR,LF,"$"
+availableBytesStr   db " bytes available on disk",CR,LF,LF,"$"
+clustSzStr          db " bytes in each allocation unit.",CR,LF,"$"
+totClusStr          db " allocation units available on disk.",CR,LF,LF,"$"
+volSerialNumStr     db "Volume Serial Number is $"
+
+;Filename strings
+sLblProg db "X:\LABEL.COM",0
+sSysProg db "X:\SYS.COM",0
