@@ -2,9 +2,17 @@
 fmtDrive    db -1       ;Drive we are operating on (0 based)
 inCrit      db 0        ;If not 0, in a critical section, must exit
 cdsPtr      dq 0        ;CDS ptr here
-pBuffer  dq 0        ;Ptr to the buffer area
+pBuffer     dq 0        ;Ptr to the buffer area
 bFlag1      db 0 | bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
 pBtLdr      dq 0        ;Point to the bootloader to use
+bSwitch     db "/"      ;Switch char
+
+;Switch vars
+sVolLblLen  db 12, 0    ;Start of the string buffer
+sVolLbl     db 12 dup (SPC) ;Volume label goes here.
+wGivenTrks  dw 0        ;Tracks per side (1 head as remdev)
+bGivenSPT   db 0        ;Sectors per track
+bGivenSz    db 0        ;This is an offset into the BPB table if /F set
 
 ;Format Data here
 remDev      db 0        ;0 = Removable, -1 = Fixed
@@ -54,121 +62,212 @@ fat32ClusterTable:
     dq -1       ; Disk up to 2TB, 32K clusters
     db 64
 
-;Bpbs are for remdevs of 1.44Mb and 2.88Mb capacity.
-;We have these built-in so that if (when supported) /F:1.44 or /F:2.88
+;Bpbs are for remdevs of 160Kb to 2.88Mb capacity.
+;We have these built-in so that if /F:160 to /F:2.88
 ; is selected, we can format to these standard values. 
-;bpb144Mb:
-;    istruc bpb
-;    at .bytsPerSec, dw 200h
-;    at .secPerClus, db 01h
-;    at .revdSecCnt, dw 0001h
-;    at .numFATs,    db 02h    
-;    at .rootEntCnt, dw 00E0h    
-;    at .totSec16,   dw 0B40h    
-;    at .media,      db 0F0h    
-;    at .FATsz16,    dw 0009h    
-;    at .secPerTrk,  dw 0012h    
-;    at .numHeads,   dw 0002h    
-;    at .hiddSec,    dd 0    
-;    at .totSec32,   dd 0     
-;    iend
-;bpb288Mb:
-;    istruc bpb
-;    at .bytsPerSec, dw 200h
-;    at .secPerClus, db 02h  ;To be FAT 12 OK, we need 2 sectors/clust
-;    at .revdSecCnt, dw 0001h
-;    at .numFATs,    db 02h
-;    at .rootEntCnt, dw 00E0h
-;    at .totSec16,   dw 1680h
-;    at .media,      db 0F0h
-;    at .FATsz16,    dw 0012h
-;    at .secPerTrk,  dw 0024h    
-;    at .numHeads,   dw 0002h    
-;    at .hiddSec,    dd 0    
-;    at .totSec32,   dd 0     
-;    iend
+bpbTbl:
+bpb160Kb:
+    istruc bpb  ;160Kb 5.25" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 1    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 64   ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 320  ;Number of sectors on medium
+        at .media,      db 0FEh ;Media descriptor byte
+        at .FATsz16,    dw 1    ;Number of sectors per FAT
+        at .secPerTrk,  dw 8    ;Number of sectors per "track"
+        at .numHeads,   dw 1    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors
+    iend
+bpb180Kb:
+    istruc bpb  ;180Kb 5.25" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 1    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 64   ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 360  ;Number of sectors on medium
+        at .media,      db 0FCh ;Media descriptor byte
+        at .FATsz16,    dw 2    ;Number of sectors per FAT
+        at .secPerTrk,  dw 9    ;Number of sectors per "track"
+        at .numHeads,   dw 1    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors
+    iend
+bpb320Kb:
+    istruc bpb  ;320Kb 5.25" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 2    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 112  ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 640  ;Number of sectors on medium
+        at .media,      db 0FFh ;Media descriptor byte
+        at .FATsz16,    dw 1    ;Number of sectors per FAT
+        at .secPerTrk,  dw 8    ;Number of sectors per "track"
+        at .numHeads,   dw 2    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors
+    iend
+bpb360Kb:
+    istruc bpb  ;360Kb 5.25" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 2    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 112  ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 720  ;Number of sectors on medium
+        at .media,      db 0FDh ;Media descriptor byte
+        at .FATsz16,    dw 2    ;Number of sectors per FAT
+        at .secPerTrk,  dw 9    ;Number of sectors per "track"
+        at .numHeads,   dw 2    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors
+    iend
+bpb720Kb:
+    istruc bpb  ;720Kb 3.5" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 2    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 112  ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 1440 ;Number of sectors on medium
+        at .media,      db 0F9h ;Media descriptor byte
+        at .FATsz16,    dw 3    ;Number of sectors per FAT
+        at .secPerTrk,  dw 9    ;Number of sectors per "track"
+        at .numHeads,   dw 2    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors
+    iend
+bpb120Mb:
+    istruc bpb  ;1.2Mb 5.25" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 1    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 224  ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 2400 ;Number of sectors on medium
+        at .media,      db 0F9h ;Media descriptor byte
+        at .FATsz16,    dw 7    ;Number of sectors per FAT
+        at .secPerTrk,  dw 15   ;Number of sectors per "track"
+        at .numHeads,   dw 2    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors
+    iend
+bpb144Mb:
+    istruc bpb  ;1.44Mb 3.5" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 1    ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 224  ;Number of 32 byte entries in Root directory  
+        at .totSec16,   dw 2880 ;Number of sectors on medium   
+        at .media,      db 0F0h ;Media descriptor byte   
+        at .FATsz16,    dw 9    ;Number of sectors per FAT
+        at .secPerTrk,  dw 18   ;Number of sectors per "track" 
+        at .numHeads,   dw 2    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors 
+    iend
+bpb288Mb:
+    istruc bpb  ;2.88Mb 3.5" floppies
+        at .bytsPerSec, dw 512  ;Bytes per sector
+        at .secPerClus, db 2    ;To be FAT 12 OK, we need 2 sectors/clust
+        at .revdSecCnt, dw 1    ;Number of reserved sectors, in volume
+        at .numFATs,    db 2    ;Number of FATs on media
+        at .rootEntCnt, dw 224  ;Number of 32 byte entries in Root directory
+        at .totSec16,   dw 5760 ;Number of sectors on medium 
+        at .media,      db 0F0h ;Media descriptor byte 
+        at .FATsz16,    dw 18   ;Number of sectors per FAT
+        at .secPerTrk,  dw 36   ;Number of sectors per "track" 
+        at .numHeads,   dw 2    ;Number of read "heads"
+        at .hiddSec,    dd 0    ;Number of hidden sectors
+        at .totSec32,   dd 0    ;32 bit count of sectors   
+    iend
 
 ;Generic BPBs here, fields set to -1 must be edited in the copy made.
 genericBPB12:
     istruc bpb
-    at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
-    at .secPerClus,  db -1           ;1 sector per cluster, normally
-    at .revdSecCnt,  dw 0001h        ;1 Reserved Sector
-    at .numFATs,     db 02h          ;2 FAT tables
-    at .rootEntCnt,  dw 00E0h        ;224 root entries
-    at .totSec16,    dw -1           ;Total number of sectors on disk
-    at .media,       db 0F0h         ;Media byte
-    at .FATsz16,     dw -1           ;9 FAT sectors, normally
-    at .secPerTrk,   dw 0012h        ;18 Sectors per track
-    at .numHeads,    dw 0002h        ;2 Heads
-    at .hiddSec,     dd -1           ;No hidden sectors on removable
-    at .totSec32,    dd 0            ;Not a FAT32 BPB
+        at .bytsPerSec, dw -1   ;512 bytes per sector, normally
+        at .secPerClus, db -1   ;1 sector per cluster, normally
+        at .revdSecCnt, dw 1    ;1 Reserved Sector
+        at .numFATs,    db 2    ;2 FAT tables
+        at .rootEntCnt, dw 224  ;224 root entries
+        at .totSec16,   dw -1   ;Total number of sectors on disk
+        at .media,      db 0F0h ;Media byte
+        at .FATsz16,    dw -1   ;9 FAT sectors, normally
+        at .secPerTrk,  dw 18   ;18 Sectors per track
+        at .numHeads,   dw 2    ;2 Heads
+        at .hiddSec,    dd -1   ;No hidden sectors on removable
+        at .totSec32,   dd 0    ;16 bit entry suffices
     iend
     istruc extBs 
-    at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
-    at .reserved1,      db 00h
-    at .bootSig,        db extBsSig ;Normal signature
-    at .volId,          dd -1       ;Set to date/time @ format
-    at .volLab,         db 'NO NAME    '    
-    at .filSysType,     db 'FAT12   '
+        at .drvNum,     db -1   ;Set to 0 for Remdev, 80h for fixed disk
+        at .reserved1,  db 00h
+        at .bootSig,    db extBsSig ;Normal signature
+        at .volId,      dd -1       ;Set to date/time @ format
+        at .volLab,     db 'NO NAME    '    
+        at .filSysType, db 'FAT12   '
     iend
 
 
 genericBPB16:
     istruc bpb
-    at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
-    at .secPerClus,  db -1           ;Sectors per cluster
-    at .revdSecCnt,  dw 0001h        ;1 Reserved Sector
-    at .numFATs,     db 02h          ;2 FAT tables
-    at .rootEntCnt,  dw 0200h        ;512 root entries
-    at .totSec16,    dw -1           ;Total number of sectors on disk
-    at .media,       db 0F0h         ;Media byte
-    at .FATsz16,     dw -1           ;Number of sectors per FAT
-    at .secPerTrk,   dw 003Fh        ;FAT16 and 32 have Hard disk geometry 
-    at .numHeads,    dw 00FFh        ;255 Heads
-    at .hiddSec,     dd -1           ;No hidden sectors on removable
-    at .totSec32,    dd 0            ;Not a FAT32 BPB
+        at .bytsPerSec, dw -1   ;512 bytes per sector, normally
+        at .secPerClus, db -1   ;Sectors per cluster
+        at .revdSecCnt, dw 1    ;1 Reserved Sector
+        at .numFATs,    db 2    ;2 FAT tables
+        at .rootEntCnt, dw 512  ;512 root entries
+        at .totSec16,   dw -1   ;Total number of sectors on disk
+        at .media,      db 0F0h ;Media byte
+        at .FATsz16,    dw -1   ;Number of sectors per FAT
+        at .secPerTrk,  dw 03Fh ;FAT16 and 32 have Hard disk geometry 
+        at .numHeads,   dw 0FFh ;255 Heads
+        at .hiddSec,    dd -1   ;No hidden sectors on removable
+        at .totSec32,   dd 0    ;16 bit entry suffices
     iend
     istruc extBs 
-    at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
-    at .reserved1,      db 00h
-    at .bootSig,        db extBsSig ;Normal signature
-    at .volId,          dd -1       ;Set to date/time @ format
-    at .volLab,         db 'NO NAME    '    
-    at .filSysType,     db 'FAT16   '
+        at .drvNum,     db -1   ;Set to 0 for Remdev, 80h for fixed disk
+        at .reserved1,  db 0
+        at .bootSig,    db extBsSig ;Normal signature
+        at .volId,      dd -1       ;Set to date/time @ format
+        at .volLab,     db 'NO NAME    '    
+        at .filSysType, db 'FAT16   '
     iend
 gbs_size equ ($ - genericBPB16) + 11
 
 genericBPB32:
     istruc bpb32
-    at .bytsPerSec,  dw -1           ;512 bytes per sector, normally
-    at .secPerClus,  db -1           ;Sectors per cluster
-    at .revdSecCnt,  dw 0010h        ;16 Reserved Sectors
-    at .numFATs,     db 02h          ;2 FAT tables
-    at .rootEntCnt,  dw 0000h        ;Invalid field for FAT32
-    at .totSec16,    dw 0            ;Not a FAT 12/16 BPB
-    at .media,       db 0F0h         ;Media byte
-    at .FATsz16,     dw 0            ;Not a FAT 12/16 BPB
-    at .secPerTrk,   dw 003Fh        ;FAT16 and 32 have Hard disk geometry 
-    at .numHeads,    dw 00FFh        ;255 Heads
-    at .hiddSec,     dd -1           ;No hidden sectors on removable
-    at .totSec32,    dd -1           ;Total number of sectors on disk
-
-    at .FATsz32,     dd -1  ;Number of sectors per FAT
-    at .extFlags,    dw -1  ;Extended Flags word
-    at .FSver,       dw 0   ;File system version word, must be 0
-    at .RootClus,    dd -1  ;First Cluster of Root Directory
-    at .FSinfo,      dw 1   ;Sector number of FSINFO structure, usually 1
-    at .BkBootSec,   dw 6   ;Backup Boot sector, either 0 or 6
-    at .reserved,    db 12 dup (0) ;Reserved 12 bytes
+        at .bytsPerSec, dw -1   ;512 bytes per sector, normally
+        at .secPerClus, db -1   ;Sectors per cluster
+        at .revdSecCnt, dw 16   ;16 Reserved Sectors
+        at .numFATs,    db 2    ;2 FAT tables
+        at .rootEntCnt, dw 0    ;Invalid field for FAT32
+        at .totSec16,   dw 0    ;Not a FAT 12/16 BPB
+        at .media,      db 0F0h ;Media byte
+        at .FATsz16,    dw 0    ;Not a FAT 12/16 BPB
+        at .secPerTrk,  dw 03Fh ;FAT16 and 32 have Hard disk geometry 
+        at .numHeads,   dw 0FFh ;255 Heads
+        at .hiddSec,    dd -1   ;No hidden sectors on removable
+        at .totSec32,   dd -1   ;Total number of sectors on disk
+;---------------------FAT 32 SPECIFIC FIELDS---------------------
+        at .FATsz32,    dd -1  ;Number of sectors per FAT
+        at .extFlags,   dw -1  ;Extended Flags word
+        at .FSver,      dw 0   ;File system version word, must be 0
+        at .RootClus,   dd -1  ;First Cluster of Root Directory
+        at .FSinfo,     dw 1   ;Sector number of FSINFO structure, usually 1
+        at .BkBootSec,  dw 6   ;Backup Boot sector, either 0 or 6
+        at .reserved,   db 12 dup (0) ;Reserved 12 bytes
     iend
     istruc extBs 
-    at .drvNum,         db -1   ;Set to 0 for Remdev, 80h for fixed disk
-    at .reserved1,      db 00h
-    at .bootSig,        db extBsSig ;Normal signature
-    at .volId,          dd -1       ;Set to date/time @ format
-    at .volLab,         db 'NO NAME    '    
-    at .filSysType,     db 'FAT32   '
+        at .drvNum,     db -1   ;Set to 0 for Remdev, 80h for fixed disk
+        at .reserved1,  db 0
+        at .bootSig,    db extBsSig ;Normal signature
+        at .volId,      dd -1       ;Set to date/time @ format
+        at .volLab,     db 'NO NAME    '    
+        at .filSysType, db 'FAT32   '
     iend
 gbs32_size equ ($ - genericBPB32) + 11
 

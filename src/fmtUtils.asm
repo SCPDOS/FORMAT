@@ -28,10 +28,6 @@ doYNWait:
 ;--------------------------------------
 ;          Utility functions          :
 ;--------------------------------------
-doSysFiles:
-    return
-doVolLbl:
-    return
 writeDiskStats:
 ;Writes the disk statistics after a format.
 ;-------------------------------------------------------

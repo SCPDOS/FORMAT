@@ -50,14 +50,23 @@ bitSystem   equ 2   ;/S -> Install system files.
 bitVolume   equ 4   ;/V:[LABEL] -> Don't prompt volume, use LABEL directly.
 bitBadChck  equ 8   ;/C -> Double check if bad clusters still bad. 
 ;Next two hold only on remdevs.
-bitOld      equ 10  ;Must be /N:<Sectors> and /T:<Tracks>.
-bitNew      equ 20  ;/F:<size> -> Specify the size, in bytes, of volume. 
+bitSecTrk   equ 10  ;Must be /N:<Sectors> and /T:<Tracks>.
+bitFloppy   equ 20  ;/F:<size> -> Specify the size of volume. 
+;Options are: 160, 180, 320, 360, 720, 1.2, 1.44, 2.88 (written as strings)
+
+struc cmdLineArgs
+    .fcb1       db 16 dup (?)  ;First FCB,    argument 1 
+    .fcb2       db 20 dup (?)  ;Second FCB,   argument 2
+    .dta:   ;Pointer to the default DTA in the PSP
+    .parmList   db ?   ;Number of characters in command tail
+    .progTail   db 127 dup (?) ;Default DTA/Program tail
+endstruc
 
 struc execProg 
-    .pEnv       resq 1  ;Ptr to environment block (or 0 => copy parent env)
-    .pCmdLine   resq 1  ;Ptr to the command line to be placed at PSP + 80h
-    .pfcb1      resq 1  ;Ptr to the first FCB (parsed argument 1)
-    .pfcb2      resq 1  ;Ptr to the second FCB  (parsed argument 2)
+    .pEnv       dq ?    ;Ptr to environment block (or 0 => copy parent env)
+    .pCmdLine   dq ?  ;Ptr to the command line to be placed at PSP + 80h
+    .pfcb1      dq ?  ;Ptr to the first FCB (parsed argument 1)
+    .pfcb2      dq ?  ;Ptr to the second FCB  (parsed argument 2)
 endstruc
 
 struc accFlgBlk

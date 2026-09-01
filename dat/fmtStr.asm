@@ -1,4 +1,5 @@
 ;Error Messages go here
+badParamStr db "Invalid parameter",CR,LF,"$"
 badVerStr   db "Invalid DOS Version",CR,LF,"$"
 badDrvLtr   db "Invalid Drive Specified",CR,LF,"$"
 badNetDrv   db "Cannot FORMAT a Network drive",CR,LF,"$"
@@ -48,5 +49,16 @@ totClusStr          db " allocation units available on disk.",CR,LF,LF,"$"
 volSerialNumStr     db "Volume Serial Number is $"
 
 ;Filename strings
-sLblProg db "X:\LABEL.COM",0
 sSysProg db "X:\SYS.COM",0
+
+;Size strings to check for if /F: specified.
+szTbl:
+    db 3, "160"     ;160K
+    db 3, "180"     ;180K
+    db 3, "320"     ;320K
+    db 3, "360"     ;360K
+    db 3, "720"     ;720K
+    db 3, "1.2"     ;1.2M
+    db 4, "1.44"    ;1.44M
+    db 4, "2.88"    ;2.88M
+szTblL  equ $ - szTbl

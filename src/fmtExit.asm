@@ -16,6 +16,9 @@ exitNoFormatFixed:
 ;          Error Exit wrappers          :
 ;----------------------------------------
 ;If we need "Format failed" printed, print before jumping here
+badParamExit:
+    lea rdx, badParamStr
+    jmp badExitCmn
 badBtSctrExit:
     call restoreBpb     ;Handle BPB driver state restore
     lea rdx, badFmtFail
