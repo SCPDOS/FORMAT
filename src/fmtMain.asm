@@ -25,6 +25,7 @@ startFormat:
     lea rdx, badDrvLtr
     jmp short .printExit
 .driveOk:
+    breakpoint
     call parseMain  ;Now parse the commend line
 ; Here we now hook ^C so that if the user calls ^C we restore DOS state
 ; (i.e. default drive and reactivate the drive if it is deactivated)

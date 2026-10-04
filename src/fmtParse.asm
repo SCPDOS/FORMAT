@@ -23,12 +23,14 @@ parseMain:
 .mainLp:
     call skipDelimiters
     je .endParse
+    call readChar   ;Get the non-delim char
     cmp al, byte [bSwitch]  ;Is the char the switch char?
     je .switchFnd
 ;This must be a drive letter and the next char must be a colon, else error.
-    movzx edx, al  ;Save the drive letter in dl
-    call readChar 
-    je badParamExit ;Cannot end with just a letter
+    movzx edx, al   ;Save the drive letter in dl
+    test ecx, ecx   ;A drive letter must be followed by a : 
+    jz badParamExit
+    call readChar
     cmp al, ":"
     jne badParamExit
 ;Save the drive letter now. If one was already saved, crap out
@@ -143,10 +145,12 @@ parseMain:
     repne scasw
     je .psFnd
 ;Here we have either 1.2, 1.44 or 2.88
+    pop rcx         ;Get back the char count for ASCII read
+    test ecx, ecx
+    jz badParamExit
     call readChar
     cmp al, "."
     jne badParamExit
-    pop rcx         ;Get back the char count for ASCII read
     call getASCIINumber
     push rcx        ;Save it again
     mov ecx, -1     ;Count past the end of the table

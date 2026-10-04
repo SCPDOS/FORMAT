@@ -287,7 +287,7 @@ ioParams:
     at .wNumCyl,    dw maxTrack
     at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
-    at .TrackLayout,    dw maxTrack
+    at .TrackLayout,    dw 0    ;Indicate we don't carry a Track Layout table!
     iend
 ;Each row is a pair of words:
 ;   dw Sector number, Sector size
