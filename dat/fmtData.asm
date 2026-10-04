@@ -277,21 +277,25 @@ accFlgPkt:
         at .bSpecFuncs, db 0
         at .bAccMode,   db 0    ;If 0, disable access. If -1, enable.
     iend
+
+maxTrack equ 63
 ioParams:
     istruc chsParamsBlock
     at .bSpecFuncs, db 4    ;Bit 0 = Dont lock bpb. Bit 2 = Sectors same size.
     at .bDevType,   db 0    ;5 if fixed, 7 otherwise
     at .wDevFlgs,   dw 0    ;Only bits 0 and 1 are xmitted/read
-    at .wNumCyl,    dw 63
+    at .wNumCyl,    dw maxTrack
     at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
-    at .TrackLayout,    dw 63
+    at .TrackLayout,    dw maxTrack
     iend
-;Each row is made of four values. Read driver code for explaination...
+;Each row is a pair of words:
+;   dw Sector number, Sector size
     %push
-    %assign i 1
-        %rep (63 + 1)
-        db 0, 0, i, 2
+        %assign i 1
+            %rep (maxTrack + 1)
+                dw i, 200h
             %assign i i+1
         %endrep
     %pop
+

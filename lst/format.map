@@ -509,6 +509,7 @@ AA550000  fsInfoSig3
 00000002  fs_fat32
 0000003E  gbs_size
 0000005A  gbs32_size
+0000003F  maxTrack
 0000001A  fmtPcntMsgL
 00000005  szTblL
 
