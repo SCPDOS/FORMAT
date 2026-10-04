@@ -53,12 +53,9 @@ sSysProg db "X:\SYS.COM",0
 
 ;Size strings to check for if /F: specified.
 szTbl:
-    db 3, "160"     ;160K
-    db 3, "180"     ;180K
-    db 3, "320"     ;320K
-    db 3, "360"     ;360K
-    db 3, "720"     ;720K
-    db 3, "1.2"     ;1.2M
-    db 4, "1.44"    ;1.44M
-    db 4, "2.88"    ;2.88M
-szTblL  equ $ - szTbl
+    dw 160  ;160K
+    dw 180  ;180K
+    dw 320  ;320K
+    dw 360  ;360K
+    dw 720  ;720K
+szTblL  equ ($ - szTbl)/2

@@ -2,6 +2,12 @@
 ;We are flexible on the order of the arguments, switches can go before
 ; drive letters, we don't enforce an order. No arguments however can be
 ; multiply set and this constitutes an error.
+
+;Caveats:
+;1) /C overrides formatting. It will switch to just reading and writing back
+;    each ``bad'' sector. It won't mark sectors as bad.
+;2) /F and {/N /T} cannot operate together. This constitutes an error.
+
 parseMain:
     mov eax, 3700h 
     int 21h ;Get in dl the switch char
@@ -12,6 +18,8 @@ parseMain:
     lea rsi, qword [rdx + cmdLineArgs.parmList]
     lodsb           ;Get count and point to first char in command tail.
     movzx ecx, al   ;Put count into ecx
+    cmp byte [rsi + rcx], CR    ;Is this a valid command line?
+    jne badParamExit
 .mainLp:
     call skipDelimiters
     je .endParse
@@ -41,10 +49,10 @@ parseMain:
     call ucChar     ;Uppercase our switch char in al
     cmp al, "V"
     je .parseVol
-    cmp al, "T"
-    je .parseTracks
-    cmp al, "N"
-    je .parseSectors
+;;    cmp al, "T"
+;;    je .parseTracks
+;;    cmp al, "N"
+;;    je .parseSectors
     cmp al, "F"
     je .parseSize
     cmp al, "S"
@@ -57,17 +65,17 @@ parseMain:
     test byte [bFlag1], bitBadChck
     jnz badParamExit
     or byte [bFlag1], bitBadChck
-    jmp short .mainLp
+    jmp .mainLp
 .parseQuick:
     test byte [bFlag1], bitQuick
     jnz badParamExit
     or byte [bFlag1], bitQuick
-    jmp short .mainLp
+    jmp .mainLp
 .parseSys:
     test byte [bFlag1], bitSystem
     jnz badParamExit
     or byte [bFlag1], bitSystem
-    jmp short .mainLp
+    jmp .mainLp
 .parseVol:
     test byte [bFlag1], bitVolume
     jnz badParamExit
@@ -93,22 +101,30 @@ parseMain:
     add edx, 11     ;Get the length of the volume label
     mov byte [sVolLblLen + 1], dl
     jmp .mainLp
-.parseTracks: 
-    test word [wGivenTrks], -1      ;If never been accessed, we are 0
-    jnz badParamExit
-    or byte [bFlag1], bitSecTrk     ;Now set the bit
-    call readChar
-    cmp al, ":"
-    jne badParamExit
-    ;TO BE FILLED IN
-.parseSectors:
-    test byte [bGivenSPT], -1       ;If never been accessed, we are 0
-    jnz badParamExit
-    or byte [bFlag1], bitSecTrk
-    call readChar
-    cmp al, ":"
-    jne badParamExit
-    ;TO BE FILLED IN
+;;.parseTracks: 
+;;    test word [wGivenTrks], -1      ;If never been accessed, we are 0
+;;    jnz badParamExit
+;;    or byte [bFlag1], bitTrk        ;Now set the bit
+;;    call readChar
+;;    cmp al, ":"
+;;    jne badParamExit
+;;    call getASCIINumber
+;;    cmp ebx, 0FFFFh                 ;Has to be a word
+;;    ja badParamExit
+;;    mov word [wGivenTrks], bx
+;;    jmp .mainLp
+;;.parseSectors:
+;;    test byte [bGivenSPT], -1       ;If never been accessed, we are 0
+;;    jnz badParamExit
+;;    or byte [bFlag1], bitSec
+;;    call readChar
+;;    cmp al, ":"
+;;    jne badParamExit
+;;    call getASCIINumber
+;;    cmp ebx, 0FFh
+;;    ja badParamExit
+;;    mov byte [bGivenSPT], bl
+;;    jmp .mainLp
 .parseSize:
     test byte [bFlag1], bitFloppy
     jnz badParamExit
@@ -116,11 +132,71 @@ parseMain:
     call readChar
     cmp al, ":"
     jne badParamExit
-;rsi points to the portion of the command that specifies the size
-;Should be three or four chars
+    call getASCIINumber
+    cmp ebx, 0FFFFh 
+    ja badParamExit
 
+    push rcx
+    lea rdi, szTbl  ;Scan to see if value is between 160 and 720
+    mov ecx, szTblL
+    mov eax, ebx    ;Search for count in eax
+    repne scasw
+    je .psFnd
+;Here we have either 1.2, 1.44 or 2.88
+    call readChar
+    cmp al, "."
+    jne badParamExit
+    pop rcx         ;Get back the char count for ASCII read
+    call getASCIINumber
+    push rcx        ;Save it again
+    mov ecx, -1     ;Count past the end of the table
+    cmp ebx, 2      ;1.2
+    je .psFnd
+    dec ecx         ;ecx = -1
+    cmp ebx, 44     ;1.44
+    je .psFnd
+    dec ecx         ;ecx = -2
+    cmp ebx, 88     ;2.88
+    jne badParamExit
+.psFnd:
+    neg ecx
+    lea eax, dword [ecx + szTblL]   ;Turn into bpb table offset
+    mov byte [bGivenSz], al
+    pop rcx
+    jmp .mainLp
 .endParse:
+    return
+;Now we just check that if /F or /T or /N are specified, they are 
+; correctly specified.
+;;    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
+;;    retz    ;If none of these bits are set, return ok
+;;    test byte [bFlag1], bitFloppy   ;If this bit not set, ensure both others set
+;;    jz .epST
+;Here we know that the floppy bit is set. Ensure neither Sec nor Trk is set too.
+;;    test byte [bFlag1], ~bitFloppy
+;;    retz    ;Return if this is the only bit set
+;Fall through here to save 5 bytes as the next cmp will fail!
+;.epST:
+;Here we know that the floppy bit is not set. Ensure both Sec and Trk bits set
+;;    cmp byte [bFlag1], bitSec | bitTrk
+;;    rete
+;;    jmp badParamExit
 
+;;parseCheck:
+;Checks that the flags we have sset make sense for the type of 
+; device we are formatting.
+;Input: al = Clear if removable
+;;       al = Set if fixed
+;;    test al, al ;All options on rem devs
+;;    retz
+;If any of these bits are set, we fail.
+;;    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
+;;    retz
+;;    jmp badParamExit
+
+;-------------------------
+; Parse utility functions
+;-------------------------
 
 readChar:
 ;Reads a character from the command tail. 
@@ -131,11 +207,12 @@ readChar:
 ;        ecx -= 1
 ;       ZF=ZE: End of cmd tail
 ;       ZF=NZ: Not end of cmd tail
+    test ecx, ecx
+    retz
+.noCheck:
     lodsb
     dec ecx
-    retz
-    cmp al, CR
-    retz
+    return
 
 findDelimiter:
 ;Goes to the next delimiter.
@@ -209,4 +286,45 @@ ucChar:
     int 21h
     mov eax, edx
     pop rdx
+    return
+
+getASCIINumber:
+;Accumulates the value in ebx and returns it.
+;First char read must be a digit, else, we treat a non-digit
+; as a terminator of the number. 
+;If the value is greater than 32 bits, treat as invalid input
+    xor ebx, ebx
+    call readChar    ;First char after : must be a digit
+    call isAlDigit
+    jc badParamExit
+.lp:
+    and eax, 0Fh    ;Save lower nybble only and zero the rest of the register
+    mov ebp, ebx    ;Dont use lea because we cant check for carry
+    shl ebx, 2      ;4*ebx
+    jc badParamExit
+    add ebx, ebp    ;5*ebx
+    jc badParamExit
+    shl ebx, 1      ;10*ebx
+    jc badParamExit
+    add ebx, eax    ;Add new digit value
+    jc badParamExit
+    test ecx, ecx   ;Stop if we run out of chars to process
+    retz
+    call readChar.noCheck    ;Else get the next char
+    call isAlDigit              ;If it is a digit, keep processing
+    jnc .lp
+;Else, we reset to the first non-digit char and return.
+    dec rsi
+    inc ecx
+    return
+
+isAlDigit:
+    cmp al, "0"
+    jb .notDigit
+    cmp al, "9"
+    ja .notDigit
+    clc
+    return
+.notDigit:
+    stc 
     return

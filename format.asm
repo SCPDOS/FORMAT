@@ -33,9 +33,10 @@
 
 ;Command semantics
 ;FORMAT drive: [/V:[LABEL]] [/Q] [/F:size] [/S] [/C] 
-; or
-;FORMAT drive: [/V:[LABEL]] [/Q] [/T:tracks /N:sectors] [/S] [/C] 
-
+;; or
+;;FORMAT drive: [/V:[LABEL]] [/Q] [/T:tracks /N:sectors] [/S] [/C] 
+;
+; CURRENTLY, WE DO NOT SUPPORT {/T /N} FORMATTING!!
 
 [map all ./lst/format.map]
 [DEFAULT REL]
@@ -46,13 +47,20 @@ BITS 64
 ;Default behaviour is to always zero all data sectors of the disk as well. 
 ; This is done to also pick up bad clusters to mark them as bad in the FAT.
 bitQuick    equ 1   ;/Q -> Do quick format, no zeroing. No bad sect. checks.
-bitSystem   equ 2   ;/S -> Install system files.
+bitSystem   equ 2   ;/S -> Install system files. 
+;Checks: current drive:\currentdir, A:\ [copies whole files into memory]
 bitVolume   equ 4   ;/V:[LABEL] -> Don't prompt volume, use LABEL directly.
-bitBadChck  equ 8   ;/C -> Double check if bad clusters still bad. 
-;Next two hold only on remdevs.
-bitSecTrk   equ 10  ;Must be /N:<Sectors> and /T:<Tracks>.
-bitFloppy   equ 20  ;/F:<size> -> Specify the size of volume. 
+bitBadChck  equ 8   ;/C -> Checks if bad clusters are still bad. 
+; If this is specified, doesn't format the disk.
+;Next three hold only on remdevs. If these bits set on fixed disk, bad parm!
+;-----------------------------------v
+;;bitSec      equ 10  ;/N:<Sectors>.| These two must both be set, else
+;;bitTrk      equ 20  ;/T:<Tracks>. |  bad parameter! Suppose double sided
+;-----------------------------------^
+bitFloppy   equ 40  ;/F:<size> -> Specify the size of volume. 
 ;Options are: 160, 180, 320, 360, 720, 1.2, 1.44, 2.88 (written as strings)
+
+;Either /F Floppy is set or {/N /T}. Not both!
 
 struc cmdLineArgs
     .fcb1       db 16 dup (?)  ;First FCB,    argument 1 
@@ -95,6 +103,7 @@ fs_fat16 equ 1
 fs_fat32 equ 2
 
 %include "./src/fmtMain.asm"
+%include "./src/fmtParse.asm"
 %include "./src/fmtUtils.asm"
 %include "./src/fmtExit.asm"
 %include "./dat/fmtData.asm"

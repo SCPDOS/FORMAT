@@ -3,7 +3,7 @@ fmtDrive    db -1       ;Drive we are operating on (0 based)
 inCrit      db 0        ;If not 0, in a critical section, must exit
 cdsPtr      dq 0        ;CDS ptr here
 pBuffer     dq 0        ;Ptr to the buffer area
-bFlag1      db 0 | bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
+bFlag1      db bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
 pBtLdr      dq 0        ;Point to the bootloader to use
 bSwitch     db "/"      ;Switch char
 
@@ -15,7 +15,7 @@ bGivenSPT   db 0        ;Sectors per track
 bGivenSz    db 0        ;This is an offset into the BPB table if /F set
 
 ;Format Data here
-remDev      db 0        ;0 = Removable, -1 = Fixed
+fixDev      db 0        ;0 = Removable, -1 = Fixed
 fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
 sectorSize  dw 512      ;Sector size in bytes: HARDCODED BYTES PER SECTOR VALUE
 numSectors  dq 0        ;Number of sectors in volume
@@ -286,69 +286,12 @@ ioParams:
     at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
     at .TrackLayout,    dw 63
-;Each row is a pair of words:
-;   dw Sector number, Sector size
-    dw 1, 200h
-    dw 2, 200h
-    dw 3, 200h
-    dw 4, 200h
-    dw 5, 200h
-    dw 6, 200h
-    dw 7, 200h
-    dw 8, 200h
-    dw 9, 200h
-    dw 10, 200h
-    dw 11, 200h
-    dw 12, 200h
-    dw 13, 200h
-    dw 14, 200h
-    dw 15, 200h
-    dw 16, 200h
-    dw 17, 200h
-    dw 18, 200h
-    dw 19, 200h
-    dw 20, 200h
-    dw 21, 200h
-    dw 22, 200h
-    dw 23, 200h
-    dw 24, 200h
-    dw 25, 200h
-    dw 26, 200h
-    dw 27, 200h
-    dw 28, 200h
-    dw 29, 200h
-    dw 30, 200h
-    dw 31, 200h
-    dw 32, 200h
-    dw 33, 200h
-    dw 34, 200h
-    dw 35, 200h
-    dw 36, 200h
-    dw 37, 200h
-    dw 38, 200h
-    dw 39, 200h
-    dw 40, 200h
-    dw 41, 200h
-    dw 42, 200h
-    dw 43, 200h
-    dw 44, 200h
-    dw 45, 200h
-    dw 46, 200h
-    dw 47, 200h
-    dw 48, 200h
-    dw 49, 200h
-    dw 50, 200h
-    dw 51, 200h
-    dw 52, 200h
-    dw 53, 200h
-    dw 54, 200h
-    dw 55, 200h
-    dw 56, 200h
-    dw 57, 200h
-    dw 58, 200h
-    dw 59, 200h
-    dw 60, 200h
-    dw 61, 200h
-    dw 62, 200h
-    dw 63, 200h
     iend
+;Each row is made of four values. Read driver code for explaination...
+    %push
+    %assign i 1
+        %rep (63 + 1)
+        db 0, 0, i, 2
+            %assign i i+1
+        %endrep
+    %pop
