@@ -3,6 +3,9 @@
 exitOk:
     lea rdx, crlfStr    ;Print a CRLF on exit!
     call printString
+
+    test byte [wpError], -1 ;Are we exiting after a WP?
+    jnz exitWriteProtect
     mov eax, 4C00h
     int 21h
 exitError:
@@ -10,6 +13,12 @@ exitError:
     int 21h
 exitNoFormatFixed:
     mov eax, 4C05h
+    int 21h
+exitDriveNotReady:
+    mov eax, 4C06h
+    int 21h
+exitWriteProtect:
+    mov eax, 4C07h
     int 21h
 
 ;----------------------------------------

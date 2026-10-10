@@ -103,30 +103,30 @@ parseMain:
     add edx, 11     ;Get the length of the volume label
     mov byte [sVolLblLen + 1], dl
     jmp .mainLp
-;;.parseTracks: 
-;;    test word [wGivenTrks], -1      ;If never been accessed, we are 0
-;;    jnz badParamExit
-;;    or byte [bFlag1], bitTrk        ;Now set the bit
-;;    call readChar
-;;    cmp al, ":"
-;;    jne badParamExit
-;;    call getASCIINumber
-;;    cmp ebx, 0FFFFh                 ;Has to be a word
-;;    ja badParamExit
-;;    mov word [wGivenTrks], bx
-;;    jmp .mainLp
-;;.parseSectors:
-;;    test byte [bGivenSPT], -1       ;If never been accessed, we are 0
-;;    jnz badParamExit
-;;    or byte [bFlag1], bitSec
-;;    call readChar
-;;    cmp al, ":"
-;;    jne badParamExit
-;;    call getASCIINumber
-;;    cmp ebx, 0FFh
-;;    ja badParamExit
-;;    mov byte [bGivenSPT], bl
-;;    jmp .mainLp
+.parseTracks: 
+    test word [wGivenTrks], -1      ;If never been accessed, we are 0
+    jnz badParamExit
+    or byte [bFlag1], bitTrk        ;Now set the bit
+    call readChar
+    cmp al, ":"
+    jne badParamExit
+    call getASCIINumber
+    cmp ebx, 0FFFFh                 ;Has to be a word
+    ja badParamExit
+    mov word [wGivenTrks], bx
+    jmp .mainLp
+.parseSectors:
+    test byte [bGivenSPT], -1       ;If never been accessed, we are 0
+    jnz badParamExit
+    or byte [bFlag1], bitSec
+    call readChar
+    cmp al, ":"
+    jne badParamExit
+    call getASCIINumber
+    cmp ebx, 0FFh
+    ja badParamExit
+    mov byte [bGivenSPT], bl
+    jmp .mainLp
 .parseSize:
     test byte [bFlag1], bitFloppy
     jnz badParamExit
@@ -172,31 +172,31 @@ parseMain:
     return
 ;Now we just check that if /F or /T or /N are specified, they are 
 ; correctly specified.
-;;    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
-;;    retz    ;If none of these bits are set, return ok
-;;    test byte [bFlag1], bitFloppy   ;If this bit not set, ensure both others set
-;;    jz .epST
+    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
+    retz    ;If none of these bits are set, return ok
+    test byte [bFlag1], bitFloppy   ;If this bit not set, ensure both others set
+    jz .epST
 ;Here we know that the floppy bit is set. Ensure neither Sec nor Trk is set too.
-;;    test byte [bFlag1], ~bitFloppy
-;;    retz    ;Return if this is the only bit set
+    test byte [bFlag1], ~bitFloppy
+    retz    ;Return if this is the only bit set
 ;Fall through here to save 5 bytes as the next cmp will fail!
 ;.epST:
 ;Here we know that the floppy bit is not set. Ensure both Sec and Trk bits set
-;;    cmp byte [bFlag1], bitSec | bitTrk
-;;    rete
-;;    jmp badParamExit
+    cmp byte [bFlag1], bitSec | bitTrk
+    rete
+    jmp badParamExit
 
-;;parseCheck:
-;Checks that the flags we have sset make sense for the type of 
+parseCheck:
+;Checks that the flags we have set make sense for the type of 
 ; device we are formatting.
 ;Input: al = Clear if removable
-;;       al = Set if fixed
-;;    test al, al ;All options on rem devs
-;;    retz
+       al = Set if fixed
+    test al, al ;All options on rem devs
+    retz
 ;If any of these bits are set, we fail.
-;;    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
-;;    retz
-;;    jmp badParamExit
+    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
+    retz
+    jmp badParamExit
 
 ;-------------------------
 ; Parse utility functions

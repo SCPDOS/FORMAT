@@ -17,6 +17,9 @@ startFormat:
     call printString
     jmp exitError
 .okVersion:
+;Get the verify flag and set it. On exit, reset it!
+;
+;
 ;Check the passed argument is ok (flag in al)
     pop rax
     cmp al, -1
@@ -64,10 +67,9 @@ startFormat:
     mov eax, 4408h  ;IOCTL, Get if removable or not. Should never fail
     int 21h
     jc badIOCTLExit.alt ;Don't print format failed!
-;;    call parseCheck
+    call parseCheck
     test al, al
     jz .gotRemDev
-    or byte [media], 8      ;Turn to 0F8h
     mov byte [fixDev], -1   ;Indicate Fixed drive
 ;Print the Hard Drive Partition warning string.
     lea rdx, fmtHddStr
@@ -81,51 +83,20 @@ startFormat:
     call getch  ;Any char will proceed us
 goFmt:
 ;Print CRLF to signal remdev inserted/fixed disk warning accepted
+    mov byte [wpError], 0   ;Reset the wpError flag
     lea rdx, crlfStr
     call printString
 ;Now request IOCTL to give medium parameters
 ;Get from BPB as this should be synced with disk (this is to handle ufmtd media).
 ;Hence, don't hit the disk (also this protects if the user has overwritten 
-; sector 0 somehow)...
-;... unless a remdev and the user specified /F or {/N /T} 
-    test byte [fixDev], -1
-    jnz .getFrmBpb
-;;    test byte [bFlag1], bitSec | bitTrk | bitFloppy
-    test byte [bFlag1], bitFloppy
-    jz .getFrmBpb
-    test byte [bFlag1], bitBadChck
-    jnz .getFrmBpb  ;We ignore the floppy settings if this is set
-;Sets up a fake BPB in the chsParamsBlock.deviceBPB
-;;    test byte [bFlag1], bitFloppy
-;;    jnz .getFloppyTbl
-;Here we have tracks and sectors per track. Compute 
-; BPB values and set them up. We always assume 2 heads here.
-;Start by copying the default
-;;    lea rsi, qword [bpbTbl]
-;;    lea rdi, qword [ioParams + chsParamsBlock.deviceBPB]
-;;    mov qword [bpbPtr], rdi         ;Save the BPB ptr here
-;;    mov ecx, bpb_size
-;;    push rdi
-;;    rep movsb
-;;    pop rdi
-.getFloppyTbl:
-;Now we use the offset to copy the bpb to the right place
-    movzx eax, byte [bGivenSz]
-    mov ecx, bpb_size
-    mul ecx
-    lea rsi, qword [bpbTbl + rax]
-    lea rdi, qword [ioParams + chsParamsBlock.deviceBPB]
-    mov qword [bpbPtr], rdi         ;Save the BPB ptr here
-    rep movsb
-    jmp short .gotBpb
-.getFrmBpb:
+; sector 0 somehow)
     mov eax, specFuncBPB
     call getBpb
     jc badIOCTLExit
 ;Setup pointer to the BPB we will be using to report format
     lea rdi, qword [rdx + chsParamsBlock.deviceBPB] ;Point to BPB
     mov qword [bpbPtr], rdi ;Store this as the BPB buffer pointer
-.gotBpb:
+    call switchAdjustBpb    ;If switches set, adjust reported BPB.
 ;
 ;Now setup internal vars. Trust the returned BPB even for FAT12 floppies,
 ; as even if the media doesn't have a BPB on it, the driver will return
@@ -136,10 +107,9 @@ goFmt:
 ;Ensure that we always set the number of FATs to 2
     mov byte [rdi + bpb.numFATs], 2
     movzx ebx, word [rdi + bpb.bytsPerSec]
-;TEMP: ONLY ALLOW FORMATTING ON "NORMAL" (512 byte sectors) MEDIA FOR NOW
-    cmp word [sectorSize], bx 
-    jne badSecSizeExit
-;TEMP: END OF TEMP
+    mov word [sectorSize], bx 
+    movzx eax, byte [rdi + bpb.media]
+    mov byte [media], al
     movzx eax, byte [rdi + bpb.secPerClus]  ;Store the reported secPerClus val
     mov byte [secPerClust], al
     mov eax, dword [rdi + bpb.hiddSec]
@@ -526,6 +496,7 @@ exitFormat:
     test byte [fixDev], -1  ;Was this drive fixed? Set if so.
     jnz exitOk
 ;If we formatted on a remdev, ask if we wanna go again?
+exitGoAgain:
     lea rdx, againStr
     call doYNWait
     jc exitOk  ;If CF=CY, we said no and we are done!

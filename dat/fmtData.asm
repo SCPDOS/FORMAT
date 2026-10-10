@@ -6,6 +6,7 @@ pBuffer     dq 0        ;Ptr to the buffer area
 bFlag1      db bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
 pBtLdr      dq 0        ;Point to the bootloader to use
 bSwitch     db "/"      ;Switch char
+wpError     db 0        ;Set if we tried to write a WP disk
 
 ;Switch vars
 sVolLblLen  db 12, 0    ;Start of the string buffer
@@ -17,17 +18,22 @@ bGivenSz    db 0        ;This is an offset into the BPB table if /F set
 ;Format Data here
 fixDev      db 0        ;0 = Removable, -1 = Fixed
 fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
-sectorSize  dw 512      ;Sector size in bytes: HARDCODED BYTES PER SECTOR VALUE
+sectorSize  dw 0        ;Sector size in bytes
 numSectors  dq 0        ;Number of sectors in volume
 secPerClust db 0        ;Copy the sectors per cluster over
 fatSize     dd 0        ;FAT size (number of sectors per FAT)
-media       db 0F0h     ;Media type (F0h or F8h)
+media       db 0F0h     ;Media type
 bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
 bpbSize     db 0        ;Size of the BPB
 hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
 f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
 dSerNum     dd 0        ;Serial number
-dBadClust   dd 0        ;Number of bad clusters on disk
+dBadClust   dd 0        ;Count of bad clusters on disk
+;Used during data area formatting.
+dClustInFmt dd 2        ;Cluster in format
+bSectInClst db 0        ;Sector in the cluster being processed (0-secPerClust)
+qSectAddr   dq 0        ;Absolute sector number being transacted on
+dMaxClust   dd 0        ;Set to know when to stop looping clust fmt
 
 ;Tracking vars, used only for updating the percentage message!
 secToWrite  dq 0        ;Number of sectors to write (neq numSectors if /Q set)
@@ -278,23 +284,32 @@ accFlgPkt:
         at .bAccMode,   db 0    ;If 0, disable access. If -1, enable.
     iend
 
-maxTrack equ 63
+fmtPkt:
+    istruc lbaFormatBlock
+        at .bSize,          db lbaFormatBlock_size
+        at .bNumSectors,    db 0
+        at .qStartSector,   dq 0
+    iend
+
 ioParams:
     istruc chsParamsBlock
     at .bSpecFuncs, db 4    ;Bit 0 = Dont lock bpb. Bit 2 = Sectors same size.
     at .bDevType,   db 0    ;5 if fixed, 7 otherwise
     at .wDevFlgs,   dw 0    ;Only bits 0 and 1 are xmitted/read
-    at .wNumCyl,    dw maxTrack
+    at .wNumCyl,    dw 0    ;This gets set by DOS when we call it
     at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
-    at .TrackLayout,    dw 0    ;Indicate we don't carry a Track Layout table!
     iend
-;Each row is a pair of words:
-;   dw Sector number, Sector size
+    istruc trackTable
+    at .wArraySz, dw maxTrackSz
+    iend
     %push
         %assign i 1
-            %rep (maxTrack + 1)
-                dw i, 200h
+            %rep maxTrackSz
+            istruc trackTableRow
+            at .wSectorId, dw i
+            at .wSectorSz, dw 200h
+            iend 
             %assign i i+1
         %endrep
     %pop

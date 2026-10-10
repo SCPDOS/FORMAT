@@ -54,8 +54,8 @@ bitBadChck  equ 8   ;/C -> Checks if bad clusters are still bad.
 ; If this is specified, doesn't format the disk.
 ;Next three hold only on remdevs. If these bits set on fixed disk, bad parm!
 ;-----------------------------------v
-;;bitSec      equ 10  ;/N:<Sectors>.| These two must both be set, else
-;;bitTrk      equ 20  ;/T:<Tracks>. |  bad parameter! Suppose double sided
+bitSec      equ 10  ;/N:<Sectors>.  | These two must both be set, else
+bitTrk      equ 20  ;/T:<Tracks>.   |  bad parameter! Suppose double sided
 ;-----------------------------------^
 bitFloppy   equ 40  ;/F:<size> -> Specify the size of volume. 
 ;Options are: 160, 180, 320, 360, 720, 1.2, 1.44, 2.88 (written as strings)
@@ -82,20 +82,39 @@ struc accFlgBlk
     .bAccMode   db ?    ;Set if access allowed. Clear if not.
 endstruc
 
+maxTrackSz  equ 63
+
 struc chsParamsBlock
-    .bSpecFuncs db ?    ;Bit 0
+    .bSpecFuncs db ?
     .bDevType   db ?    ;5 if fixed, 7 otherwise
     .wDevFlgs   dw ?    ;Only bits 0 and 1 are xmitted/read
     .wNumCyl    dw ?    ;Num cylinders of media, preserved across calls
     .bMedTyp    db ?    ;Perma 0 for us, meaningless. Reserved.
     .deviceBPB  db 53 dup (?)   ;Full length with reserved bytes of BPB32
-    .TrackLayout dw (63*2 + 1) dup (?)  ;Full size table
+    .TrackLayout:
 endstruc
 specFuncBPB equ 1<<0    ;In set, locks the BPB. In get, rets backup bpb
 ;In setBpb, set if we want to lock bpb. clear to unlock
 ;Below only used in setparams requests. Ignored for getparams 
 specFuncTrk equ 1<<1    ;Set if just track layout cpy. Clear if set all.
 specFuncSec equ 1<<2    ;Set if all sectors same size. Clear if not.
+
+struc trackTable
+    .wArraySz   dw ?    ;Number of entries in the array
+    .sTrackArray:       ;An array of the below struc
+endstruc
+
+struc trackTableRow
+    .wSectorId  dw ?    ;Sector number (1 - Max id in track)
+    .wSectorSz  dw ?    ;Given as a byte count (i.e. 512 for 512 bytes)
+endstruc
+
+struc lbaFormatBlock
+    .bSize          db ?
+    .bNumSectors    db ?  ;# sectors to act on. Returns sectors acted on
+    .sRes           db 6 dup (?)
+    .qStartSector   dq ?  ;Sector to start action on
+endstruc
 
 ;Some local equates
 fs_fat12 equ 0

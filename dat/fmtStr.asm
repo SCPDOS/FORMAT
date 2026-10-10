@@ -15,6 +15,8 @@ badFSInfoWr db "Unable to write FS Info",CR,LF,"$"
 badIOCTL    db "Error in IOCTL call",CR,LF,"$"
 badFATWr    db "Error writing FAT",CR,LF,"$"
 badDirWr    db "Error writing directory",CR,LF,"$"
+badWP       db "Attempted write-protect violation",CR,LF,"$"
+
 ;Removable device warning message
 fmtRemStr   db "Insert new Media for drive "
 fmtRemStrL  db "#:",CR,LF,"and strike ENTER when ready$"

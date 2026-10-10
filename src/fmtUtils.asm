@@ -457,3 +457,128 @@ computeFATSize:
     pop rcx
     pop rbx
     return
+
+clust2FATEntry:
+;Converts a cluster number to a offset in the FAT
+;Entry:  Uses the bpbPtr to convert cluster number
+;        eax = Cluster number to look for
+;Exit:   eax = Sector on disk of FAT 
+;        ecx = 0 => FAT12, 1 => FAT16, 2 => FAT32
+;        edx = 1.5Byte/Word/DWord in sector of entry
+    push rbx
+    push rbp
+    mov rbp, qword [bpbPTr]
+    movzx ebx, byte [fatType]
+    cmp ebx, 1
+    jb .fat12
+    ja .fat32
+;FAT16
+    shl eax, 1  ;Multiply cluster number by 2
+    push qword 1
+    jmp short .common
+.fat12:
+    mov ecx, eax    ;ecx = eax
+    shr ecx, 1      ;ecx = ecx / 2
+    add eax, ecx    ;eax = eax + ecx    (eax * 1.5)
+    push qword 0
+    jmp short .common
+.fat32:
+    push qword 2
+    shl eax, 2  ;Multiply cluster number by 4
+.common:
+;eax has the FAToffset
+    movzx ecx, word [rbp + bpb.bytsPerSec]
+    xor edx, edx    ;edx = 0
+    div ecx         ;Divide by bytes per sector (0:eax / ecx)
+    movzx ebx, word [rbp + bpb.revdSecCnt]   ;Add the offset to the first FAT
+    add eax, ebx
+    pop rcx ;Pop the FAT type back into rcx
+    pop rbp
+    pop rbx
+    return
+
+
+fmtDataSectors:
+;Formats the data area. If the clean write fails, we mark the sector
+; as bad in the FAT. Thus, we keep track of which FAT sector and
+; which FAT offset we are in.
+    test byte [bFlag1], bitQuick | bitBadChck
+    retnz       ;Don't format data sectors if quick or check!
+    call cleanBuffer
+;Compute the number of clusters on the disk
+    movzx ecx, byte [secPerClust]
+    mov rax, qword [numSectors]
+    div ecx 
+    mov dword [dMaxClust], eax
+;Now work out the first sector of the data area
+    mov rsi, qword [bpbPtr]
+    cmp byte [fatType], 2
+    je .fat32
+;FAT 12 and FAT 16 volumes come here
+    movzx eax, word [rsi + bpb.FATsz16] 
+    shl eax, 1  ;Multiply by 2 FATs
+    mul ebx ;Get the number of sectors in the FAT
+    movzx ebx, word [rsi + bpb.revdSecCnt]
+    add eax, ebx
+    push rax
+;Now we compute the size of the root directory in sectors
+    mov eax, word [rsi + bpb.rootEntCnt]    ;Get number of dir entries
+    mov ebx, 32 ;Size of a FAT directory entry
+    mul ebx     ;Get how many bytes these dir entries take
+    mov eax, byte [rsi + bpb.bytsPerSec]
+    xchg ebx, eax
+    div ebx     
+    pop rbx
+    add eax, ebx
+    jmp short .goFmt
+.fat32: 
+    movzx eax, word [rsi + bpb.FATsz32] 
+    shl eax, 1  ;Multiply by 2 FATs
+    movzx ebx, word [rsi + bpb.revdSecCnt]
+    add eax, ebx
+;We format the FAT 32 root directory as a normal data sector. We then
+; find the first non-bad cluster and set that as the root directory.
+.goFmt:
+;eax = Sector to start formatting at
+    mov qword [qSectAddr], rax
+    xor ecx, ecx
+.clustLp:
+;ecx = 1, write one sector
+;rdx = LBA of sector to write
+    mov ecx, 1
+    mov rdx, qword [qSectAddr]
+    call writeSector
+    jnc .clustOk
+;Here we might have a bad sector. Check the error. 
+; If WP error, fail and prompt if user wants to format another diskette
+; If media change detected, complain!
+;Else we read the appropriate FAT sectors and mark this 
+; cluster as bad and advance the cluster number.
+    
+    test al, al ;WP error?
+    jne .badClust
+    lea rdx, badWP
+    call printString
+    test byte [fixDev], -1
+    je exitError    ;This should not happen but safety first :)
+    mov byte [wpError], -1  ;We had a WP error 
+    jmp exitGoAgain
+.badClust:
+
+
+.clustOk:
+    movzx eax, byte [bSectInClst]
+    cmp byte [secPerClust], al
+    je .clustEnd
+    inc byte [bSectInClst]
+    inc qword [qSectAddr]
+    jmp short .clustLp
+.clustEnd:
+    mov eax, dword [dClustInFmt]
+    cmp eax, dword [dMaxClust]  ;Have we just processed the last cluster?
+    rete                        ;Exit if so!
+    mov byte [bSectInClst], 0
+    inc dword [dClustInFmt]
+    inc qword [qSectAddr]
+    jmp short .clustLp
+    
