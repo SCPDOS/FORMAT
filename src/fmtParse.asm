@@ -51,10 +51,10 @@ parseMain:
     call ucChar     ;Uppercase our switch char in al
     cmp al, "V"
     je .parseVol
-;;    cmp al, "T"
-;;    je .parseTracks
-;;    cmp al, "N"
-;;    je .parseSectors
+    cmp al, "T"
+    je .parseTracks
+    cmp al, "N"
+    je .parseSectors
     cmp al, "F"
     je .parseSize
     cmp al, "S"
@@ -63,10 +63,10 @@ parseMain:
     je .parseQuick
     cmp al, "C"
     jne badParamExit
-;parse Bad Check here
+;Parse Bad Check here. Bad check overrides everything.
     test byte [bFlag1], bitBadChck
     jnz badParamExit
-    or byte [bFlag1], bitBadChck
+    mov byte [bFlag1], bitBadChck
     jmp .mainLp
 .parseQuick:
     test byte [bFlag1], bitQuick
@@ -82,6 +82,7 @@ parseMain:
     test byte [bFlag1], bitVolume
     jnz badParamExit
     or byte [bFlag1], bitVolume
+    mov byte [sVolLblCnt], 0    ;Reset the volume label count!
     call readChar
     cmp al, ":"
     jne badParamExit
@@ -101,7 +102,7 @@ parseMain:
 ;Now save the length of the volume label and proceed
     neg edx
     add edx, 11     ;Get the length of the volume label
-    mov byte [sVolLblLen + 1], dl
+    mov byte [sVolLblCnt], dl
     jmp .mainLp
 .parseTracks: 
     test word [wGivenTrks], -1      ;If never been accessed, we are 0
@@ -134,44 +135,61 @@ parseMain:
     call readChar
     cmp al, ":"
     jne badParamExit
-    call getASCIINumber
-    cmp ebx, 0FFFFh 
-    ja badParamExit
-
+;Now we read ahead. Max string length is 6, min is 2 so we first figure out the
+; end of the string. If it is outside this length, we fail. Else we copy the string
+; and then null terminate and go through the table.
+    enter 8, 0      ;Make sufficient space on the stack for the string
+    lea rdi, qword [rbp - 8]    ;Store the chars here
+    mov rdx, rdi    ;Save the ptr to the head of the string in rbx
+    mov ebx, 7      ;Use as a char counter. If it goes above 6, fail!
+.parseFLp:
+    call readChar   
+    jz .parseFLpEnd
+    call isALdelimiter
+    jz .parseFLpEnd
+    dec ebx
+    jz badParamExit ;If we are about to store a 7th char, fail!
+    stosb
+    jmp short .parseFLp
+.parseFLpEnd:
+    cmp ebx, 5
+    jae badParamExit    ;If we stored 0, 1 or 2 chars, fail!
+    push rcx            ;Save the number of chars left to process on stack
+    push rsi            ;rsi now points past the /F: string. Save it!
+    mov ecx, 7
+    sub ecx, ebx        ;Get the number of chars stored in ecx!
+    mov eax, 6521h      ;Uppercase ASCIIZ pointed to by rdx
+    int 21h
+    mov rdi, rdx        ;Point rdi to the capitalised string
+    lea rsi, fStrings
+.parseFSearchLp:
+    lodsd           ;Read the leading dword of the table and adv rsi
+    test eax, eax
+    jz badParamExit ;If we get here, the string didn't match. Bad parameter!
+    mov ebx, eax    ;This is the count of strings for this sub table
+.parseFSearchLp2:
+    lodsb           ;Get the length of the string to compare in al
+    movzx ecx, al   ;rsi points to the string. Set ecx = chars to compare
+    mov rdi, rdx    ;Point rdi to the start of the user string now
     push rcx
-    lea rdi, szTbl  ;Scan to see if value is between 160 and 720
-    mov ecx, szTblL
-    mov eax, ebx    ;Search for count in eax
-    repne scasw
-    je .psFnd
-;Here we have either 1.2, 1.44 or 2.88
-    pop rcx         ;Get back the char count for ASCII read
-    test ecx, ecx
-    jz badParamExit
-    call readChar
-    cmp al, "."
-    jne badParamExit
-    call getASCIINumber
-    push rcx        ;Save it again
-    mov ecx, -1     ;Count past the end of the table
-    cmp ebx, 2      ;1.2
-    je .psFnd
-    dec ecx         ;ecx = -1
-    cmp ebx, 44     ;1.44
-    je .psFnd
-    dec ecx         ;ecx = -2
-    cmp ebx, 88     ;2.88
-    jne badParamExit
-.psFnd:
-    neg ecx
-    lea eax, dword [ecx + szTblL]   ;Turn into bpb table offset
-    mov byte [bGivenSz], al
+    push rsi
+    repe cmpsb      ;Compare table string with given string
+    pop rsi
     pop rcx
+    je .parseFSearchLpEnd
+    add rsi, rcx    ;Go to the next string in the sub-matrix
+    dec ebx         ;Drop another entry from the sub-matrix count
+    jnz .parseFSearchLp2    
+    inc byte [bGivenSz]         ;Go to next BPB table now!
+    jmp short .parseFSearchLp   ;Go to next sub-matrix
+.parseFSearchLpEnd:
+    pop rsi
+    pop rcx
+    leave
     jmp .mainLp
 .endParse:
-    return
 ;Now we just check that if /F or /T or /N are specified, they are 
-; correctly specified.
+; correctly specified, i.e. either /F or {/T and /N}.
     test byte [bFlag1], bitSec | bitTrk | bitFloppy 
     retz    ;If none of these bits are set, return ok
     test byte [bFlag1], bitFloppy   ;If this bit not set, ensure both others set
@@ -180,22 +198,10 @@ parseMain:
     test byte [bFlag1], ~bitFloppy
     retz    ;Return if this is the only bit set
 ;Fall through here to save 5 bytes as the next cmp will fail!
-;.epST:
+.epST:
 ;Here we know that the floppy bit is not set. Ensure both Sec and Trk bits set
     cmp byte [bFlag1], bitSec | bitTrk
     rete
-    jmp badParamExit
-
-parseCheck:
-;Checks that the flags we have set make sense for the type of 
-; device we are formatting.
-;Input: al = Clear if removable
-       al = Set if fixed
-    test al, al ;All options on rem devs
-    retz
-;If any of these bits are set, we fail.
-    test byte [bFlag1], bitSec | bitTrk | bitFloppy 
-    retz
     jmp badParamExit
 
 ;-------------------------
@@ -204,13 +210,15 @@ parseCheck:
 
 readChar:
 ;Reads a character from the command tail. 
-; If the count goes to zero or CR read, end of line!
+; If the count is zero, end of line!
 ;Input: ecx = Number of chars left to read
 ;       rsi -> String to read
-;Output: rsi -> Adv by one char
-;        ecx -= 1
+;Output:
+;       ZF=NZ: Not end of cmd tail 
+;           rsi += 1
+;           ecx -= 1
 ;       ZF=ZE: End of cmd tail
-;       ZF=NZ: Not end of cmd tail
+
     test ecx, ecx
     retz
 .noCheck:

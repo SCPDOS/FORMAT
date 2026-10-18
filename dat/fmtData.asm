@@ -1,47 +1,83 @@
 ;Data area here
 fmtDrive    db -1       ;Drive we are operating on (0 based)
-inCrit      db 0        ;If not 0, in a critical section, must exit
-cdsPtr      dq 0        ;CDS ptr here
 pBuffer     dq 0        ;Ptr to the buffer area
 bFlag1      db bitQuick ;HARDCODED TO BE QUICK FORMAT FOR NOW
-pBtLdr      dq 0        ;Point to the bootloader to use
 bSwitch     db "/"      ;Switch char
-wpError     db 0        ;Set if we tried to write a WP disk
+bVerify     db -1       ;Verify flag on entry, -1 means not obtained yet
+bRetCde     db retOk    ;Set to the return error code
+bAccFlag    db -1       ;Original access flag: -1 = enabled, 0 = disabled
+bCDSAdjust  db 0        ;Set if we adjusted the CDS valid flag.
+bValidFS    db -1       ;Set if a valid FAT FS was detected
 
 ;Switch vars
-sVolLblLen  db 12, 0    ;Start of the string buffer
+;/V
+sVolLblLen  db 12       ;Length of string buffer. Use a 21/09 style buffer
+sVolLblCnt  db 0        ;Number of chars in the buffer
 sVolLbl     db 12 dup (SPC) ;Volume label goes here.
+;/T
 wGivenTrks  dw 0        ;Tracks per side (1 head as remdev)
+;/N
 bGivenSPT   db 0        ;Sectors per track
+;/F
 bGivenSz    db 0        ;This is an offset into the BPB table if /F set
+;/P
+;bOWCnt      db 0        ;Number of times to do overwrite (if 0, 1 pass all 0's)
+;bOWbyte     db 0        ;Randomly generated to fill sectors with 
 
 ;Format Data here
+newFormat   db 0        ;Set if we have a new physical format
 fixDev      db 0        ;0 = Removable, -1 = Fixed
 fatType     db -1       ;0 = FAT12, 1 = FAT16, 2 = FAT32, -1 = No FAT
+pBtLdr      dq 0        ;Point to the bootloader to use
+bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
+bpbSize     db 0        ;Size of the BPB
+;BPB entries we will be setting
 sectorSize  dw 0        ;Sector size in bytes
 numSectors  dq 0        ;Number of sectors in volume
 secPerClust db 0        ;Copy the sectors per cluster over
 fatSize     dd 0        ;FAT size (number of sectors per FAT)
 media       db 0F0h     ;Media type
-bpbPtr      dq 0        ;Pointer to the buffer for the BPB (in IOCTL block)
-bpbSize     db 0        ;Size of the BPB
 hiddSector  dd 0        ;Only used for Fixed Disks, offset to add
 f32RootClus dd 0        ;Cluster addr of the root dir cluster if FAT32
 dSerNum     dd 0        ;Serial number
-dBadClust   dd 0        ;Count of bad clusters on disk
 ;Used during data area formatting.
+bNumDirSect db 0        ;Number of sectors in the root directory
+dFSAreaSz   dd 0        ;Size of the FileSys (BS, FATs and RtDir)
+qDataAreaSz dq 0        ;Size of the data area
+
+dBadClust   dd 0        ;Count of bad clusters on disk
 dClustInFmt dd 2        ;Cluster in format
 bSectInClst db 0        ;Sector in the cluster being processed (0-secPerClust)
 qSectAddr   dq 0        ;Absolute sector number being transacted on
 dMaxClust   dd 0        ;Set to know when to stop looping clust fmt
 
-;Tracking vars, used only for updating the percentage message!
-secToWrite  dq 0        ;Number of sectors to write (neq numSectors if /Q set)
-secWritten  dq 0        ;Number of sectors written so far
-secPercent  db -1       ;The previous percentage (-1 not initialised)
-
-;Tables
-;All data here is RO.
+;Tracking vars, used only for updating the percentage messages!
+;Used for verify if /Q not specified and again for fresh FAT writing.
+;Also, when /P enabled, used to display per-pass write count.
+;Each of these count something different so it is ok to recycle the variables.
+secToDo     dq 0    ;Number of sectors to write/verify
+secDone     dq 0    ;Number of sectors written/verifed so far
+secPercent  db -1   ;The previous percentage (-1 not initialised)
+;---------------------------:
+;         IO BUFFERS        :
+;---------------------------:
+;One exception to the IO buffers being here:
+;The volume label is stored in the switch section above.
+volIdFcb:
+    istruc exFcb
+        at .extSig,     db -1  ;Signal an exFCB
+        at .reserved,   db 5 dup (NUL)  
+        at .attribute,  db dirVolumeID
+        at .driveNum,   db -1   ;Preload with an invalid drive number
+        at .filename,   db 8 dup ("?")
+        at .fileext,    db 3 dup ("?")
+    iend    
+outputBuffer:
+inputBuffer db 20 dup (NUL) ;Used for IO
+;---------------------------:
+;        DATA TABLES        :
+;---------------------------:
+;All data tables here are RO.
 ;Each row is 5 bytes, {DWORD, BYTE} with DWORD = diskSize, BYTE=secPerClusVal
 ;This table assumes a 512 byte sector (fair assumption) but we do a byte size
 ; comparison in format to eventually allow for other sized sectors
@@ -248,7 +284,7 @@ genericBPB32:
     istruc bpb32
         at .bytsPerSec, dw -1   ;512 bytes per sector, normally
         at .secPerClus, db -1   ;Sectors per cluster
-        at .revdSecCnt, dw 16   ;16 Reserved Sectors
+        at .revdSecCnt, dw 32   ;32 Reserved Sectors
         at .numFATs,    db 2    ;2 FAT tables
         at .rootEntCnt, dw 0    ;Invalid field for FAT32
         at .totSec16,   dw 0    ;Not a FAT 12/16 BPB
@@ -277,6 +313,9 @@ genericBPB32:
     iend
 gbs32_size equ ($ - genericBPB32) + 11
 
+;---------------------------:
+;       IOCTL PACKETS       :
+;---------------------------:
 
 accFlgPkt:
     istruc accFlgBlk
@@ -293,13 +332,14 @@ fmtPkt:
 
 ioParams:
     istruc chsParamsBlock
-    at .bSpecFuncs, db 4    ;Bit 0 = Dont lock bpb. Bit 2 = Sectors same size.
-    at .bDevType,   db 0    ;5 if fixed, 7 otherwise
+    at .bSpecFuncs, db 0    ;Possibly use specFuncBPB
+    at .bDevType,   db typeGenRem    ;Default
     at .wDevFlgs,   dw 0    ;Only bits 0 and 1 are xmitted/read
-    at .wNumCyl,    dw 0    ;This gets set by DOS when we call it
-    at .bMedTyp,    db 0    ;Perma 0 for us, meaningless. Reserved.
+    at .wNumCyl,    dw 0    ;
+    at .bMedTyp,    db 0    ;Reserved, 0
     at .deviceBPB,  db 53 dup (0)   ;Full length with reserved bytes of BPB32
     iend
+ioTable:
     istruc trackTable
     at .wArraySz, dw maxTrackSz
     iend
@@ -314,3 +354,7 @@ ioParams:
         %endrep
     %pop
 
+curParams:
+    db chsParamsBlock_size
+reqParams:
+    db chsParamsBlock_size

@@ -32,11 +32,9 @@
 ;Any old FAT (or other FS) data structures are considered nukable.
 
 ;Command semantics
-;FORMAT drive: [/V:[LABEL]] [/Q] [/F:size] [/S] [/C] 
-;; or
-;;FORMAT drive: [/V:[LABEL]] [/Q] [/T:tracks /N:sectors] [/S] [/C] 
-;
-; CURRENTLY, WE DO NOT SUPPORT {/T /N} FORMATTING!!
+;FORMAT drive: [/V:[LABEL]] [/Q] [/F:size] [/S] [/C] [/P:count]
+; or
+;FORMAT drive: [/V:[LABEL]] [/Q] [/T:tracks /N:sectors] [/S] [/C] [/P:count]
 
 [map all ./lst/format.map]
 [DEFAULT REL]
@@ -44,89 +42,19 @@ BITS 64
 %include "./inc/dosMacro.mac"
 %include "./inc/dosStruc.inc"
 %include "./inc/fatStruc.inc"
-;Default behaviour is to always zero all data sectors of the disk as well. 
-; This is done to also pick up bad clusters to mark them as bad in the FAT.
-bitQuick    equ 1   ;/Q -> Do quick format, no zeroing. No bad sect. checks.
-bitSystem   equ 2   ;/S -> Install system files. 
-;Checks: current drive:\currentdir, A:\ [copies whole files into memory]
-bitVolume   equ 4   ;/V:[LABEL] -> Don't prompt volume, use LABEL directly.
-bitBadChck  equ 8   ;/C -> Checks if bad clusters are still bad. 
-; If this is specified, doesn't format the disk.
-;Next three hold only on remdevs. If these bits set on fixed disk, bad parm!
-;-----------------------------------v
-bitSec      equ 10  ;/N:<Sectors>.  | These two must both be set, else
-bitTrk      equ 20  ;/T:<Tracks>.   |  bad parameter! Suppose double sided
-;-----------------------------------^
-bitFloppy   equ 40  ;/F:<size> -> Specify the size of volume. 
-;Options are: 160, 180, 320, 360, 720, 1.2, 1.44, 2.88 (written as strings)
-
-;Either /F Floppy is set or {/N /T}. Not both!
-
-struc cmdLineArgs
-    .fcb1       db 16 dup (?)  ;First FCB,    argument 1 
-    .fcb2       db 20 dup (?)  ;Second FCB,   argument 2
-    .dta:   ;Pointer to the default DTA in the PSP
-    .parmList   db ?   ;Number of characters in command tail
-    .progTail   db 127 dup (?) ;Default DTA/Program tail
-endstruc
-
-struc execProg 
-    .pEnv       dq ?    ;Ptr to environment block (or 0 => copy parent env)
-    .pCmdLine   dq ?  ;Ptr to the command line to be placed at PSP + 80h
-    .pfcb1      dq ?  ;Ptr to the first FCB (parsed argument 1)
-    .pfcb2      dq ?  ;Ptr to the second FCB  (parsed argument 2)
-endstruc
-
-struc accFlgBlk
-    .bSpecFuncs db ?    ;Must be 0
-    .bAccMode   db ?    ;Set if access allowed. Clear if not.
-endstruc
-
-maxTrackSz  equ 63
-
-struc chsParamsBlock
-    .bSpecFuncs db ?
-    .bDevType   db ?    ;5 if fixed, 7 otherwise
-    .wDevFlgs   dw ?    ;Only bits 0 and 1 are xmitted/read
-    .wNumCyl    dw ?    ;Num cylinders of media, preserved across calls
-    .bMedTyp    db ?    ;Perma 0 for us, meaningless. Reserved.
-    .deviceBPB  db 53 dup (?)   ;Full length with reserved bytes of BPB32
-    .TrackLayout:
-endstruc
-specFuncBPB equ 1<<0    ;In set, locks the BPB. In get, rets backup bpb
-;In setBpb, set if we want to lock bpb. clear to unlock
-;Below only used in setparams requests. Ignored for getparams 
-specFuncTrk equ 1<<1    ;Set if just track layout cpy. Clear if set all.
-specFuncSec equ 1<<2    ;Set if all sectors same size. Clear if not.
-
-struc trackTable
-    .wArraySz   dw ?    ;Number of entries in the array
-    .sTrackArray:       ;An array of the below struc
-endstruc
-
-struc trackTableRow
-    .wSectorId  dw ?    ;Sector number (1 - Max id in track)
-    .wSectorSz  dw ?    ;Given as a byte count (i.e. 512 for 512 bytes)
-endstruc
-
-struc lbaFormatBlock
-    .bSize          db ?
-    .bNumSectors    db ?  ;# sectors to act on. Returns sectors acted on
-    .sRes           db 6 dup (?)
-    .qStartSector   dq ?  ;Sector to start action on
-endstruc
-
-;Some local equates
-fs_fat12 equ 0
-fs_fat16 equ 1
-fs_fat32 equ 2
+%include "./inc/dosError.inc"
+%include "./inc/fmtMisc.inc"
 
 %include "./src/fmtMain.asm"
+%include "./src/fmtProc.asm"
 %include "./src/fmtParse.asm"
 %include "./src/fmtUtils.asm"
+%include "./src/fmtPrint.asm"
 %include "./src/fmtExit.asm"
 %include "./dat/fmtData.asm"
 %include "./dat/fmtStr.asm"
+    align 10h   ;Ensure that the stack will be correctly aligned
+
 bootloader:
 ;Symbol pointing to the bootloader
 ;When building the COM for format, we append the loader binary here

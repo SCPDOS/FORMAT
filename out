@@ -1,0 +1,2 @@
+format.asm: info: assembly required 1+4+2 passes
+ [--info=1]
